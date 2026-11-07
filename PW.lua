@@ -59,7 +59,7 @@ if not IsInCommunity() then
     return
 end
 
-local MODULE_BASE_URL = "https://raw.githubusercontent.com/tengeXPLOITS/TengeOnTOP/refs/heads/main/"
+local MODULE_BASE_URL = "https://raw.githubusercontent.com/tengeXPLOITS/NEW-REPOS-FOR-PW/main/"
 
 local function loadRemoteModule(fileName)
     -- Avoid stale raw-content caches so the UI and controller modules stay on the same revision.
@@ -837,10 +837,10 @@ local function serverSearchAttempt(minPlayers, maxPlayers, fast)
                     autoServerHop = SETTINGS.autoServerHop,
                 })
             end)
-            local qcore = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/tengeXPLOITS/TengeOnTOP/refs/heads/main/PW.lua"))()'
+            local qcore = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/tengeXPLOITS/NEW-REPOS-FOR-PW/main/PW.lua"))()'
             local qcode = qcore
             if ok2 and cfgJson then
-                qcode = ("(function() local _json = %q; local ok,cfg = pcall(function() return game:GetService('HttpService'):JSONDecode(_json) end); if ok and type(cfg)=='table' then _G.__PLS_WAIT_CONFIG = cfg end; local f,err = loadstring(game:HttpGet('https://raw.githubusercontent.com/tengeXPLOITS/TengeOnTOP/refs/heads/main/PW.lua')); if f then pcall(f) else warn(err) end end)()"):format(cfgJson)
+                qcode = ("(function() local _json = %q; local ok,cfg = pcall(function() return game:GetService('HttpService'):JSONDecode(_json) end); if ok and type(cfg)=='table' then _G.__PLS_WAIT_CONFIG = cfg end; local f,err = loadstring(game:HttpGet('https://raw.githubusercontent.com/tengeXPLOITS/NEW-REPOS-FOR-PW/main/PW.lua')); if f then pcall(f) else warn(err) end end)()"):format(cfgJson)
             end
             pcall(function() ensureQueuedScript(qcode) end)
             local ts = game:GetService("TeleportService")
