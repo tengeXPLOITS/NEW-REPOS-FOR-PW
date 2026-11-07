@@ -872,6 +872,7 @@ end
 local activeHopTask = nil
 local activeHopStartedAt = nil
 local activeHopTimedOut = false
+local activeHopTimeoutStatus = nil
 local lastHopMinPlayers, lastHopMaxPlayers = 19, 22
 local activeHopMinPlayers, activeHopMaxPlayers = 19, 22
 local function resolveHopRange(minPlayers, maxPlayers)
@@ -909,9 +910,15 @@ serverHopNow = function(minPlayers, maxPlayers, persistent)
         while LocalPlayer and LocalPlayer.Parent do
             if not activeHopTimedOut and os.clock() - activeHopStartedAt >= 120 then
                 activeHopTimedOut = true
-                local fallbackPlayers = math.clamp(math.max(23, lastHopMinPlayers), 1, 24)
-                activeHopMinPlayers, activeHopMaxPlayers = fallbackPlayers, fallbackPlayers
-                SETTINGS.serverHopStatus = ("Took too long, server hopping to %d player server"):format(activeHopMinPlayers)
+                if lastHopMinPlayers >= 24 then
+                    activeHopMinPlayers, activeHopMaxPlayers = 22, 23
+                    activeHopTimeoutStatus = "Took too long, server hopping to 22–23 player server"
+                else
+                    local fallbackPlayers = math.clamp(math.max(23, lastHopMinPlayers), 1, 24)
+                    activeHopMinPlayers, activeHopMaxPlayers = fallbackPlayers, fallbackPlayers
+                    activeHopTimeoutStatus = ("Took too long, server hopping to %d player server"):format(fallbackPlayers)
+                end
+                SETTINGS.serverHopStatus = activeHopTimeoutStatus
             end
             cycleAttempt = (cycleAttempt % 5) + 1
             local targetMin, targetMax = activeHopMinPlayers, activeHopMaxPlayers
@@ -921,7 +928,7 @@ serverHopNow = function(minPlayers, maxPlayers, persistent)
             local searchCallOk, found = pcall(serverSearchAttempt, targetMin, targetMax, true)
             if searchCallOk and found then
                 SETTINGS.serverHopStatus = activeHopTimedOut
-                    and ("Took too long, server hopping to %d player server"):format(activeHopMinPlayers)
+                    and (activeHopTimeoutStatus or "Took too long, retrying preferred server search...")
                     or ("Found a %d-player server; joining..."):format(targetMin)
                 activeHopTask = nil
                 return
@@ -941,6 +948,7 @@ serverHopNow = function(minPlayers, maxPlayers, persistent)
         activeHopTask = nil
         activeHopStartedAt = nil
         activeHopTimedOut = false
+        activeHopTimeoutStatus = nil
         SETTINGS.serverHopActive = false
     end)
     return activeHopTask
