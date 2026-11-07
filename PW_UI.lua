@@ -229,6 +229,55 @@ function UI.create(dependencies)
             screen.Parent = playerGui
             SharedEnv.PLS_WAIT_UI_LOADED = true
 
+            local hopStatusBox = Instance.new("Frame")
+            hopStatusBox.Name = "ServerHopStatusBox"
+            hopStatusBox.Size = UDim2.new(0, 340, 0, 68)
+            hopStatusBox.Position = UDim2.new(1, -14, 1, -14)
+            hopStatusBox.AnchorPoint = Vector2.new(1, 1)
+            hopStatusBox.BackgroundColor3 = Color3.fromRGB(39, 145, 82)
+            hopStatusBox.BorderSizePixel = 0
+            hopStatusBox.Visible = false
+            hopStatusBox.ZIndex = 20
+            hopStatusBox.Parent = screen
+            local hopStatusCorner = Instance.new("UICorner")
+            hopStatusCorner.CornerRadius = UDim.new(0, 10)
+            hopStatusCorner.Parent = hopStatusBox
+            local hopStatusStroke = Instance.new("UIStroke")
+            hopStatusStroke.Color = Color3.fromRGB(118, 232, 157)
+            hopStatusStroke.Thickness = 1
+            hopStatusStroke.Parent = hopStatusBox
+            local hopStatusTitle = Instance.new("TextLabel")
+            hopStatusTitle.Size = UDim2.new(1, -18, 0, 20)
+            hopStatusTitle.Position = UDim2.new(0, 9, 0, 6)
+            hopStatusTitle.BackgroundTransparency = 1
+            hopStatusTitle.Font = Enum.Font.GothamBold
+            hopStatusTitle.Text = "SERVER HOP RETRIER"
+            hopStatusTitle.TextColor3 = Color3.new(1, 1, 1)
+            hopStatusTitle.TextSize = 13
+            hopStatusTitle.TextXAlignment = Enum.TextXAlignment.Left
+            hopStatusTitle.ZIndex = 21
+            hopStatusTitle.Parent = hopStatusBox
+            local hopStatusText = Instance.new("TextLabel")
+            hopStatusText.Size = UDim2.new(1, -18, 0, 32)
+            hopStatusText.Position = UDim2.new(0, 9, 0, 28)
+            hopStatusText.BackgroundTransparency = 1
+            hopStatusText.Font = Enum.Font.GothamMedium
+            hopStatusText.Text = "Searching for servers..."
+            hopStatusText.TextColor3 = Color3.fromRGB(245, 255, 247)
+            hopStatusText.TextSize = 12
+            hopStatusText.TextWrapped = true
+            hopStatusText.TextXAlignment = Enum.TextXAlignment.Left
+            hopStatusText.ZIndex = 21
+            hopStatusText.Parent = hopStatusBox
+            task.spawn(function()
+                while screen.Parent do
+                    hopStatusBox.Visible = SETTINGS.serverHopActive == true
+                    local status = tostring(SETTINGS.serverHopStatus or "")
+                    if status ~= "" then hopStatusText.Text = status end
+                    task.wait(0.15)
+                end
+            end)
+
             -- Mini toggle button for open/close (persistent, outside mainFrame)
             local uiToggle = Instance.new("ImageButton")
             uiToggle.Name = "PlsWaitToggle"
@@ -1370,16 +1419,9 @@ function UI.create(dependencies)
                     end
                     hopRangeText = txt
                     pcall(SaveSettings)
-                    -- Start aggressive search loop (non-toggle). Button disabled during search.
+                    -- Use the shared retry controller so the live status and timeout fallback apply.
                     pcall(function() hopBtn.Active = false; hopBtn.Text = "Searching..." end)
-                    manualHopTask = task.spawn(function()
-                        while true do
-                            local ok = serverSearchAttempt(mn, mx, true)
-                            if ok then break end
-                            task.wait(0.5)
-                        end
-                        pcall(function() hopBtn.Active = true; hopBtn.Text = "Server Hop Now" end)
-                    end)
+                    manualHopTask = serverHopNow(mn, mx, true)
                 end)
 
                 -- Population Hopper (background monitor)
@@ -1727,6 +1769,7 @@ function UI.create(dependencies)
                         local remoteWasInvoked = false
                         local requestGamepassId
                         local requestClaimPrice
+                        local donatedTo = "Unavailable (Game Pass creator lookup failed)"
                         local unclaimedBefore = readUnclaimedRobux()
                         local ok, result = pcall(function()
                             requestGamepassId = tonumber(SETTINGS.gamepassId)
@@ -1737,6 +1780,17 @@ function UI.create(dependencies)
                             if not requestClaimPrice or requestClaimPrice <= 0 or requestClaimPrice % 1 ~= 0 then
                                 error("Enter a valid positive whole-number claim price.")
                             end
+
+                            pcall(function()
+                                local info = game:GetService("MarketplaceService"):GetProductInfo(requestGamepassId, Enum.InfoType.GamePass)
+                                local creator = info and info.Creator
+                                if type(creator) == "table" and creator.Name then
+                                    local creatorType = tostring(creator.CreatorType or "User")
+                                    local creatorName = tostring(creator.Name)
+                                    local creatorId = tonumber(creator.CreatorTargetId or creator.Id)
+                                    donatedTo = creatorType .. ": " .. creatorName .. (creatorId and (" (ID " .. tostring(creatorId) .. ")") or "")
+                                end
+                            end)
 
                             local claimRemote = ReplicatedStorage:FindFirstChild("ClaimRobux")
                                 or ReplicatedStorage:WaitForChild("ClaimRobux", 5)
@@ -1790,6 +1844,7 @@ function UI.create(dependencies)
                                     unclaimedBefore = unclaimedBefore,
                                     unclaimedAfter = unclaimedAfter,
                                     claimedAmount = claimedAmount,
+                                    recipient = donatedTo,
                                     result = tostring(result),
                                 })
                             end)
