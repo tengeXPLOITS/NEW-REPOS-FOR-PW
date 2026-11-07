@@ -36,7 +36,7 @@ function UI.create(dependencies)
             notify("UI", "PlayerGui not available; UI disabled.", 5)
         else
             local Http = HttpService
-            local CONFIG_PATH = "pls_wait_config.json"
+            local CONFIG_PATH = "PW_config.json"
 
             local serverStayTime = SETTINGS.serverStayTime or 30
             local hopRangeText = SETTINGS.hopRange or "19-22"
@@ -123,8 +123,8 @@ function UI.create(dependencies)
             end
 
             pcall(function()
-                if type(_G) == "table" and type(_G.__PLS_WAIT_CONFIG) == "table" then
-                    local cfg = _G.__PLS_WAIT_CONFIG
+                if type(_G) == "table" and type(_G.__PW_CONFIG) == "table" then
+                    local cfg = _G.__PW_CONFIG
                     if cfg.webhookToggle ~= nil then SETTINGS.webhookToggle = cfg.webhookToggle end
                     SETTINGS.webhookUrl = cfg.webhookUrl or SETTINGS.webhookUrl
                     if cfg.gamepassId ~= nil then SETTINGS.gamepassId = tostring(cfg.gamepassId) end
@@ -322,7 +322,7 @@ function UI.create(dependencies)
             titleLblTop.Size = UDim2.new(1, -56, 0, 36)
             titleLblTop.Position = UDim2.new(0, 14, 0, 0)
             titleLblTop.BackgroundTransparency = 1
-            titleLblTop.Text = "PLS WAIT 🥳 / 📧 p9sn"
+            titleLblTop.Text = "PLS WAIT 🥳 / im so fkn sorry"
             titleLblTop.Font = Enum.Font.GothamBold
             titleLblTop.TextSize = 16
             titleLblTop.TextColor3 = Color3.fromRGB(240,240,240)
@@ -2273,10 +2273,10 @@ function UI.create(dependencies)
                             autoServerHop = autoServerHopEnabled,
                         })
                     end)
-                    local qcore = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/tengeXPLOITS/TengeOnTOP/refs/heads/main/pls_wait.lua"))()'
+                    local qcore = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/tengeXPLOITS/NEW-REPOS-FOR-PW/refs/heads/main/PW.lua"))()'
                     local qcode = qcore
                     if ok2 and cfgJson then
-                        qcode = ("(function() local _json = %q; local ok,cfg = pcall(function() return game:GetService('HttpService'):JSONDecode(_json) end); if ok and type(cfg)=='table' then _G.__PLS_WAIT_CONFIG = cfg end; local f,err = loadstring(game:HttpGet('https://raw.githubusercontent.com/tengeXPLOITS/TengeOnTOP/refs/heads/main/pls_wait.lua')); if f then pcall(f) else warn(err) end end)()"):format(cfgJson)
+                        qcode = ("(function() local _json = %q; local ok,cfg = pcall(function() return game:GetService('HttpService'):JSONDecode(_json) end); if ok and type(cfg)=='table' then _G.__PW_CONFIG = cfg end; local f,err = loadstring(game:HttpGet('https://raw.githubusercontent.com/tengeXPLOITS/NEW-REPOS-FOR-PW/refs/heads/main/PW.lua')); if f then pcall(f) else warn(err) end end)()"):format(cfgJson)
                     end
                     pcall(function() ensureQueuedScript(qcode) end)
                 end
