@@ -36,29 +36,26 @@ function UI.create(dependencies)
             notify("UI", "PlayerGui not available; UI disabled.", 5)
         else
             local Http = HttpService
-            local CONFIG_PATH = "PW_config.json"
+            local CONFIG_PATH = "pls_wait_config.json"
 
             local serverStayTime = SETTINGS.serverStayTime or 30
             local hopRangeText = SETTINGS.hopRange or "19-22"
             local autoUpdateBoothText = SETTINGS.autoUpdateBoothText == true
             local function parseRange(str)
                 if not str or type(str) ~= "string" then return nil end
-                -- support formats: "MIN-MAX" or a single number meaning 1-MAX
+                local normalized = str:lower():gsub("%s+", "")
+                if normalized == "any" or normalized == "" then return 1, 24 end
                 local a,b = str:match("%s*(%d+)%s*%-%s*(%d+)%s*")
                 if a and b then
-                    local mn = tonumber(a)
-                    local mx = tonumber(b)
-                    if not mn or not mx then return nil end
-                    if mn < 0 then mn = 0 end
-                    if mx < mn then return nil end
+                    local mn, mx = tonumber(a), tonumber(b)
+                    if not mn or not mx or mn < 1 or mx > 24 or mx < mn then return nil end
                     return mn, mx
                 end
                 local single = str:match("%s*(%d+)%s*")
                 if single then
-                    local mx = tonumber(single)
-                    if not mx then return nil end
-                    if mx < 1 then return nil end
-                    return 1, mx
+                    local minimum = tonumber(single)
+                    if not minimum or minimum < 1 or minimum > 24 then return nil end
+                    return minimum, 24
                 end
                 return nil
             end
@@ -123,8 +120,8 @@ function UI.create(dependencies)
             end
 
             pcall(function()
-                if type(_G) == "table" and type(_G.__PW_CONFIG) == "table" then
-                    local cfg = _G.__PW_CONFIG
+                if type(_G) == "table" and type(_G.__PLS_WAIT_CONFIG) == "table" then
+                    local cfg = _G.__PLS_WAIT_CONFIG
                     if cfg.webhookToggle ~= nil then SETTINGS.webhookToggle = cfg.webhookToggle end
                     SETTINGS.webhookUrl = cfg.webhookUrl or SETTINGS.webhookUrl
                     if cfg.gamepassId ~= nil then SETTINGS.gamepassId = tostring(cfg.gamepassId) end
@@ -322,7 +319,7 @@ function UI.create(dependencies)
             titleLblTop.Size = UDim2.new(1, -56, 0, 36)
             titleLblTop.Position = UDim2.new(0, 14, 0, 0)
             titleLblTop.BackgroundTransparency = 1
-            titleLblTop.Text = "PLS WAIT 🥳 / im so fkn sorry"
+            titleLblTop.Text = "PLS WAIT 🥳 / 📧 p9sn"
             titleLblTop.Font = Enum.Font.GothamBold
             titleLblTop.TextSize = 16
             titleLblTop.TextColor3 = Color3.fromRGB(240,240,240)
@@ -1315,7 +1312,7 @@ function UI.create(dependencies)
                 local rangeLabel = Instance.new("TextLabel")
                 rangeLabel.Size = UDim2.new(0,140,0,20)
                 rangeLabel.Position = UDim2.new(0,10,0,48)
-                rangeLabel.Text = "Hop Range (1-23P)"
+                rangeLabel.Text = "Preferred Players"
                 rangeLabel.BackgroundTransparency = 1
                 rangeLabel.TextColor3 = Color3.new(1,1,1)
                 rangeLabel.Parent = frame
@@ -1324,7 +1321,7 @@ function UI.create(dependencies)
                 rangeBox.Size = UDim2.new(0,160,0,28)
                 rangeBox.Position = UDim2.new(0,220,0,44)
                 rangeBox.Text = hopRangeText or "1-23"
-                rangeBox.PlaceholderText = "1-23 or 23"
+                rangeBox.PlaceholderText = "N minimum or MIN-MAX"
                 rangeBox.BackgroundColor3 = Color3.fromRGB(60,60,60)
                 rangeBox.TextColor3 = Color3.fromRGB(255,255,255)
                 local rbCorner = Instance.new("UICorner")
@@ -1440,7 +1437,7 @@ function UI.create(dependencies)
                                     local txt = (rangeBox and tostring(rangeBox.Text) or hopRangeText) or ""
                                     local mn, mx = parseRangeGlobal(txt)
                                     pcall(function()
-                                        serverSearchAttempt(mn, mx, false)
+                                        serverHopNow(mn, mx, true)
                                     end)
                                 end
                             end
@@ -1511,13 +1508,16 @@ function UI.create(dependencies)
                     if autoServerHopEnabled and not autoServerHopTask then
                         autoServerHopTask = task.spawn(function()
                             while autoServerHopEnabled do
-                                local waitTime = tonumber(serverStayTime) and (tonumber(serverStayTime) * 60) or 1800
+                                local waitTime = math.clamp(math.floor(tonumber(serverStayTime) or 30), 1, 180) * 60
                                 notify("Auto Server Hop", ("Next hop in %d minutes"):format(math.floor(waitTime/60)), 5)
-                                task.wait(waitTime)
+                                for _ = 1, waitTime do
                                     if not autoServerHopEnabled then break end
-                                    local txt = hopRangeText or "19-22"
-                                    local mn, mx = parseRange(txt)
-                                    if mn then serverHopNow(mn, mx, true) end
+                                    task.wait(1)
+                                end
+                                if not autoServerHopEnabled then break end
+                                local txt = hopRangeText or "19-22"
+                                local mn, mx = parseRange(txt)
+                                if mn then serverHopNow(mn, mx, true) end
                             end
                             autoServerHopTask = nil
                         end)
@@ -1978,7 +1978,7 @@ function UI.create(dependencies)
 
                 -- Auto Donate to Player: validates the target's pass before sending the game's Purchase request.
                 local donateTitle = Instance.new("TextLabel")
-                donateTitle.Size = UDim2.new(1, -20, 0, 22)
+                donateTitle.Size = UDim2.new(0, 166, 0, 22)
                 donateTitle.Position = UDim2.new(0, 10, 0, 286)
                 donateTitle.BackgroundTransparency = 1
                 donateTitle.Text = "Auto Donate to Player"
@@ -1986,6 +1986,17 @@ function UI.create(dependencies)
                 donateTitle.TextXAlignment = Enum.TextXAlignment.Left
                 donateTitle.Font = Enum.Font.GothamBold
                 donateTitle.Parent = frame
+
+                local donateBeta = Instance.new("TextLabel")
+                donateBeta.Size = UDim2.new(0, 42, 0, 18)
+                donateBeta.Position = UDim2.new(0, 180, 0, 288)
+                donateBeta.BackgroundColor3 = Color3.fromRGB(235, 170, 55)
+                donateBeta.Text = "BETA"
+                donateBeta.TextColor3 = Color3.fromRGB(35, 30, 20)
+                donateBeta.Font = Enum.Font.GothamBold
+                donateBeta.TextSize = 11
+                donateBeta.Parent = frame
+                Instance.new("UICorner", donateBeta).CornerRadius = UDim.new(0, 5)
 
                 local donateToggle = Instance.new("TextButton")
                 donateToggle.Size = UDim2.new(0, 64, 0, 22)
@@ -2273,10 +2284,10 @@ function UI.create(dependencies)
                             autoServerHop = autoServerHopEnabled,
                         })
                     end)
-                    local qcore = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/tengeXPLOITS/NEW-REPOS-FOR-PW/refs/heads/main/PW.lua"))()'
+                    local qcore = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/tengeXPLOITS/TengeOnTOP/refs/heads/main/PW.lua"))()'
                     local qcode = qcore
                     if ok2 and cfgJson then
-                        qcode = ("(function() local _json = %q; local ok,cfg = pcall(function() return game:GetService('HttpService'):JSONDecode(_json) end); if ok and type(cfg)=='table' then _G.__PW_CONFIG = cfg end; local f,err = loadstring(game:HttpGet('https://raw.githubusercontent.com/tengeXPLOITS/NEW-REPOS-FOR-PW/refs/heads/main/PW.lua')); if f then pcall(f) else warn(err) end end)()"):format(cfgJson)
+                        qcode = ("(function() local _json = %q; local ok,cfg = pcall(function() return game:GetService('HttpService'):JSONDecode(_json) end); if ok and type(cfg)=='table' then _G.__PLS_WAIT_CONFIG = cfg end; local f,err = loadstring(game:HttpGet('https://raw.githubusercontent.com/tengeXPLOITS/TengeOnTOP/refs/heads/main/PW.lua')); if f then pcall(f) else warn(err) end end)()"):format(cfgJson)
                     end
                     pcall(function() ensureQueuedScript(qcode) end)
                 end
@@ -2336,9 +2347,13 @@ function UI.create(dependencies)
             if autoServerHopEnabled and not autoServerHopTask then
                 autoServerHopTask = task.spawn(function()
                     while autoServerHopEnabled do
-                        local waitTime = tonumber(serverStayTime) and (tonumber(serverStayTime) * 60) or 1800
+                        local waitTime = math.clamp(math.floor(tonumber(serverStayTime) or 30), 1, 180) * 60
                         notify("Auto Server Hop", ("Next hop in %d minutes"):format(math.floor(waitTime/60)), 5)
-                        task.wait(waitTime)
+                        for _ = 1, waitTime do
+                            if not autoServerHopEnabled then break end
+                            task.wait(1)
+                        end
+                        if not autoServerHopEnabled then break end
                         local txt = hopRangeText or "19-22"
                         local mn, mx = parseRange(txt)
                         if mn then serverHopNow(mn, mx, true) end
@@ -2352,4 +2367,3 @@ function UI.create(dependencies)
 end
 
 return UI
---- update 4/12, bro idk when i'll stop
