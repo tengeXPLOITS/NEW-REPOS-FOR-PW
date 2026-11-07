@@ -59,7 +59,7 @@ if not IsInCommunity() then
     return
 end
 
-local MODULE_BASE_URL = "https://raw.githubusercontent.com/tengeXPLOITS/NEW-REPOS-FOR-PW/refs/heads/main/"
+local MODULE_BASE_URL = "https://raw.githubusercontent.com/tengeXPLOITS/TengeOnTOP/refs/heads/main/"
 
 local function loadRemoteModule(fileName)
     -- Avoid stale raw-content caches so the UI and controller modules stay on the same revision.
@@ -747,10 +747,10 @@ local function ensureQueuedScript(codeString)
     local okWrite = false
     pcall(function()
         if writefile then
-            writefile("pls_wait_queued.lua", codeString)
+            writefile("PW_queued.lua", codeString)
             okWrite = true
         elseif syn and syn.write_file then
-            syn.write_file("pls_wait_queued.lua", codeString)
+            syn.write_file("PW_queued.lua", codeString)
             okWrite = true
         end
     end)
@@ -759,13 +759,13 @@ local function ensureQueuedScript(codeString)
         local okQueueFile = false
         pcall(function()
             if syn and syn.queue_on_teleport then
-                syn.queue_on_teleport("dofile('pls_wait_queued.lua')")
+                syn.queue_on_teleport("dofile('PW_queued.lua')")
                 okQueueFile = true
             end
         end)
         if okQueueFile then return true end
         -- notify the user that a fallback file was written but automatic queuing wasn't available
-        pcall(function() notify("Persistence", "Wrote pls_wait_queued.lua locally; your executor may not support queue_on_teleport. If teleporting, re-run this file after join.", 8) end)
+        pcall(function() notify("Persistence", "Wrote PW_queued.lua locally; your executor may not support queue_on_teleport. If teleporting, re-run this file after join.", 8) end)
         return true
     end
 
@@ -807,7 +807,7 @@ local function serverSearchAttempt(minPlayers, maxPlayers, fast)
         local populationAfterJoin = playing + 1
         if server.id and tostring(server.id) ~= tostring(game.JobId)
             and playing < capacity and populationAfterJoin <= capacity
-            and populationAfterJoin >= minPlayers and populationAfterJoin <= maxPlayers then
+            and playing >= minPlayers and playing <= maxPlayers then
             -- queue this script to re-run on the destination and pass current settings via _G
             local ok2, cfgJson = pcall(function()
                 return HttpService:JSONEncode({
@@ -837,10 +837,10 @@ local function serverSearchAttempt(minPlayers, maxPlayers, fast)
                     autoServerHop = SETTINGS.autoServerHop,
                 })
             end)
-            local qcore = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/tengeXPLOITS/NEW-REPOS-FOR-PW/refs/heads/main/PW.lua"))()'
+            local qcore = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/tengeXPLOITS/TengeOnTOP/refs/heads/main/PW.lua"))()'
             local qcode = qcore
             if ok2 and cfgJson then
-                qcode = ("(function() local _json = %q; local ok,cfg = pcall(function() return game:GetService('HttpService'):JSONDecode(_json) end); if ok and type(cfg)=='table' then _G.__PW_CONFIG = cfg end; local f,err = loadstring(game:HttpGet('https://raw.githubusercontent.com/tengeXPLOITS/NEW-REPOS-FOR-PW/refs/heads/main/PW.lua')); if f then pcall(f) else warn(err) end end)()"):format(cfgJson)
+                qcode = ("(function() local _json = %q; local ok,cfg = pcall(function() return game:GetService('HttpService'):JSONDecode(_json) end); if ok and type(cfg)=='table' then _G.__PLS_WAIT_CONFIG = cfg end; local f,err = loadstring(game:HttpGet('https://raw.githubusercontent.com/tengeXPLOITS/TengeOnTOP/refs/heads/main/PW.lua')); if f then pcall(f) else warn(err) end end)()"):format(cfgJson)
             end
             pcall(function() ensureQueuedScript(qcode) end)
             local ts = game:GetService("TeleportService")
@@ -848,7 +848,7 @@ local function serverSearchAttempt(minPlayers, maxPlayers, fast)
                 ts:TeleportToPlaceInstance(PLACE_ID, server.id, LocalPlayer)
             end)
             if okt then
-                SETTINGS.serverHopStatus = ("Found a %d-player server; joining..."):format(populationAfterJoin)
+                SETTINGS.serverHopStatus = ("Found a %d-player server; joining..."):format(playing)
                 return true
             else
                 local terrs = tostring(terr or "")
@@ -872,8 +872,8 @@ local function resolveHopRange(minPlayers, maxPlayers)
             if minText and maxText then
                 minPlayers, maxPlayers = tonumber(minText), tonumber(maxText)
             else
-                local exact = tonumber(savedRange)
-                minPlayers, maxPlayers = exact, exact
+                local minimum = tonumber(savedRange)
+                minPlayers, maxPlayers = minimum, 24
             end
         end
     end
@@ -1349,7 +1349,9 @@ end
 -- Global simple range parser used outside UI
 local function parseRangeGlobal(str)
     if not str or type(str) ~= "string" then return nil end
-    -- support formats: "MIN-MAX" or one exact target population
+    local normalized = str:lower():gsub("%s+", "")
+    if normalized == "any" or normalized == "" then return 1, 24 end
+    -- A single value is the minimum preferred population; ranges set both bounds.
     local a,b = str:match("%s*(%d+)%s*%-%s*(%d+)%s*")
     if a and b then
         local mn = tonumber(a)
@@ -1361,9 +1363,9 @@ local function parseRangeGlobal(str)
     end
     local single = str:match("%s*(%d+)%s*")
     if single then
-        local exact = tonumber(single)
-        if not exact or exact < 1 or exact > 24 then return nil end
-        return exact, exact
+        local minimum = tonumber(single)
+        if not minimum or minimum < 1 or minimum > 24 then return nil end
+        return minimum, 24
     end
     return nil
 end
