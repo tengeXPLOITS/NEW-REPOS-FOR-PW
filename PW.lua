@@ -422,11 +422,13 @@ local function postWebhookEvent(kind, data)
             local requester = tostring(data.userName or (LocalPlayer and LocalPlayer.Name) or "Unknown")
             local recipientAvatarUrl = getRobloxAvatarImageUrl(recipientUserId)
             local profileAvatarUrl = getRobloxAvatarImageUrl(profileUserId)
+            local recipient = tostring(data.recipient or "the Game Pass creator (unavailable)")
             local resultText = data.success
-                and "robux claimed successfully and has been purchased by roman (@bvetterdays)"
-                or "you probably don't have sufficient unclaimed R$ or you're on a cooldown."
+                and ("Robux claim completed; Game Pass proceeds go to " .. recipient .. ".")
+                or "The claim may have failed because of insufficient unclaimed Robux or a cooldown."
             local claimFields = {
                 { name = "Claimed Robux", value = tostring(data.claimedAmount or data.unclaimedBefore or "Unavailable"), inline = true },
+                { name = "Donated To", value = recipient, inline = true },
                 { name = "Gamepass Used", value = tostring(data.gamepassId or "Unavailable"), inline = true },
                 { name = "Gamepass Price", value = tostring(data.claimPrice or "Unavailable"), inline = true },
                 { name = "Requested By", value = recipientUserId and ("[%s](https://www.roblox.com/users/%d/profile)"):format(requester, recipientUserId) or requester, inline = true },
@@ -462,7 +464,15 @@ local function postWebhookEvent(kind, data)
         end
     end
 
-    local payload = { username = "PlsWait", embeds = embeds }
+    local payload
+    if kind == "claim" and data and data.slot ~= nil then
+        payload = {
+            username = "PlsWait",
+            content = ("@%s claimed stand #%s"):format(tostring(LocalPlayer and LocalPlayer.Name or "Unknown"), tostring(data.slot)),
+        }
+    else
+        payload = { username = "PlsWait", embeds = embeds }
+    end
     local body = HttpService:JSONEncode(payload)
     pcall(function()
         if performHttpRequest then
@@ -860,6 +870,8 @@ local function serverSearchAttempt(minPlayers, maxPlayers, fast)
 end
 
 local activeHopTask = nil
+local activeHopStartedAt = nil
+local activeHopTimedOut = false
 local lastHopMinPlayers, lastHopMaxPlayers = 19, 22
 local activeHopMinPlayers, activeHopMaxPlayers = 19, 22
 local function resolveHopRange(minPlayers, maxPlayers)
@@ -890,14 +902,27 @@ serverHopNow = function(minPlayers, maxPlayers, persistent)
     lastHopMinPlayers, lastHopMaxPlayers = minPlayers, maxPlayers
     activeHopMinPlayers, activeHopMaxPlayers = minPlayers, maxPlayers
     if activeHopTask then return activeHopTask end
+    activeHopStartedAt = activeHopStartedAt or os.clock()
+    SETTINGS.serverHopActive = true
     activeHopTask = task.spawn(function()
         local cycleAttempt = 0
         while LocalPlayer and LocalPlayer.Parent do
+            if not activeHopTimedOut and os.clock() - activeHopStartedAt >= 120 then
+                activeHopTimedOut = true
+                local fallbackPlayers = math.clamp(math.max(23, lastHopMinPlayers), 1, 24)
+                activeHopMinPlayers, activeHopMaxPlayers = fallbackPlayers, fallbackPlayers
+                SETTINGS.serverHopStatus = ("Took too long, server hopping to %d player server"):format(activeHopMinPlayers)
+            end
             cycleAttempt = (cycleAttempt % 5) + 1
             local targetMin, targetMax = activeHopMinPlayers, activeHopMaxPlayers
-            SETTINGS.serverHopStatus = ("Searching for servers %d/5 · target %d–%d players"):format(cycleAttempt, targetMin, targetMax)
+            if not activeHopTimedOut then
+                SETTINGS.serverHopStatus = ("Searching for servers %d/5 · target %d–%d players"):format(cycleAttempt, targetMin, targetMax)
+            end
             local searchCallOk, found = pcall(serverSearchAttempt, targetMin, targetMax, true)
             if searchCallOk and found then
+                SETTINGS.serverHopStatus = activeHopTimedOut
+                    and ("Took too long, server hopping to %d player server"):format(activeHopMinPlayers)
+                    or ("Found a %d-player server; joining..."):format(targetMin)
                 activeHopTask = nil
                 return
             end
@@ -905,13 +930,18 @@ serverHopNow = function(minPlayers, maxPlayers, persistent)
                 warn("[PLS WAIT] Server search failed:", found)
             end
             if cycleAttempt == 5 then
-                SETTINGS.serverHopStatus = ("No match in 5 searches; retrying for %d–%d players..."):format(activeHopMinPlayers, activeHopMaxPlayers)
-                task.wait(1)
+                if not activeHopTimedOut then
+                    SETTINGS.serverHopStatus = "Retrying..."
+                end
+                task.wait(0.6)
             else
                 task.wait(0.2)
             end
         end
         activeHopTask = nil
+        activeHopStartedAt = nil
+        activeHopTimedOut = false
+        SETTINGS.serverHopActive = false
     end)
     return activeHopTask
 end
