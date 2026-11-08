@@ -278,6 +278,84 @@ function UI.create(dependencies)
                 end
             end)
 
+            local activityFrame = Instance.new("Frame")
+            activityFrame.Name = "DonationActivityTimer"
+            activityFrame.Size = UDim2.new(0, 286, 0, 58)
+            activityFrame.Position = UDim2.new(1, -14, 1, -90)
+            activityFrame.AnchorPoint = Vector2.new(1, 1)
+            activityFrame.BackgroundColor3 = Color3.fromRGB(25, 93, 59)
+            activityFrame.BackgroundTransparency = 1
+            activityFrame.BorderSizePixel = 0
+            activityFrame.Visible = false
+            activityFrame.ZIndex = 18
+            activityFrame.Parent = screen
+            local activityCorner = Instance.new("UICorner")
+            activityCorner.CornerRadius = UDim.new(0, 9)
+            activityCorner.Parent = activityFrame
+            local activityStroke = Instance.new("UIStroke")
+            activityStroke.Color = Color3.fromRGB(106, 220, 145)
+            activityStroke.Transparency = 1
+            activityStroke.Thickness = 1
+            activityStroke.Parent = activityFrame
+            local activityText = Instance.new("TextLabel")
+            activityText.Size = UDim2.new(1, -18, 1, -10)
+            activityText.Position = UDim2.new(0, 9, 0, 5)
+            activityText.BackgroundTransparency = 1
+            activityText.Font = Enum.Font.GothamSemibold
+            activityText.Text = ""
+            activityText.TextColor3 = Color3.fromRGB(245, 255, 247)
+            activityText.TextTransparency = 1
+            activityText.TextSize = 12
+            activityText.TextWrapped = true
+            activityText.TextXAlignment = Enum.TextXAlignment.Left
+            activityText.TextYAlignment = Enum.TextYAlignment.Center
+            activityText.ZIndex = 19
+            activityText.Parent = activityFrame
+            local activityVisible = false
+            local activityTransitionId = 0
+            local activityTween
+            task.spawn(function()
+                while screen.Parent do
+                    local ok, activity = pcall(SpinFeature.getActivityStatus)
+                    local lines = {}
+                    local active = ok and type(activity) == "table" and activity.active == true
+                    if active and activity.showLaps then
+                        table.insert(lines, ("Laps left: %d"):format(tonumber(activity.lapsLeft) or 0))
+                    end
+                    if active and activity.showHelicopter then
+                        local seconds = tonumber(activity.helicopterSeconds)
+                        table.insert(lines, seconds
+                            and ("Time until helicopter stops: %d seconds"):format(seconds)
+                            or "Time until helicopter stops: starting...")
+                    end
+                    if #lines > 0 then activityText.Text = table.concat(lines, "\n") end
+                    local shouldShow = active and #lines > 0
+                    if shouldShow ~= activityVisible then
+                        activityVisible = shouldShow
+                        activityTransitionId += 1
+                        local transitionId = activityTransitionId
+                        if activityTween then pcall(function() activityTween:Cancel() end) end
+                        if shouldShow then
+                            activityFrame.Visible = true
+                            activityTween = TweenService:Create(activityFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundTransparency = 0.12 })
+                            TweenService:Create(activityStroke, TweenInfo.new(0.25), { Transparency = 0.12 }):Play()
+                            TweenService:Create(activityText, TweenInfo.new(0.25), { TextTransparency = 0 }):Play()
+                        else
+                            activityTween = TweenService:Create(activityFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { BackgroundTransparency = 1 })
+                            TweenService:Create(activityStroke, TweenInfo.new(0.25), { Transparency = 1 }):Play()
+                            TweenService:Create(activityText, TweenInfo.new(0.25), { TextTransparency = 1 }):Play()
+                            activityTween.Completed:Connect(function()
+                                if transitionId == activityTransitionId and not activityVisible then
+                                    activityFrame.Visible = false
+                                end
+                            end)
+                        end
+                        activityTween:Play()
+                    end
+                    task.wait(0.2)
+                end
+            end)
+
             -- Mini toggle button for open/close (persistent, outside mainFrame)
             local uiToggle = Instance.new("ImageButton")
             uiToggle.Name = "PlsWaitToggle"
@@ -368,7 +446,7 @@ function UI.create(dependencies)
             titleLblTop.Size = UDim2.new(1, -56, 0, 36)
             titleLblTop.Position = UDim2.new(0, 14, 0, 0)
             titleLblTop.BackgroundTransparency = 1
-            titleLblTop.Text = "can i get a follow 😢 | @p9snn"
+            titleLblTop.Text = "PLS WAIT 🥳 / 📧 p9sn"
             titleLblTop.Font = Enum.Font.GothamBold
             titleLblTop.TextSize = 16
             titleLblTop.TextColor3 = Color3.fromRGB(240,240,240)
