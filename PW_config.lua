@@ -13,6 +13,8 @@ function Config.initializeSettings(settings, touchEnabled, defaultBoothText)
     if settings.autoUpdateBoothText == nil then settings.autoUpdateBoothText = true end
     settings.antiAfk = settings.antiAfk or false
     settings.serverStayTime = settings.serverStayTime or 30
+    local fpsLimit = tonumber(settings.fpsLimit)
+    settings.fpsLimit = fpsLimit and fpsLimit == math.floor(fpsLimit) and fpsLimit >= 5 and fpsLimit <= 1000 and fpsLimit or nil
     settings.hopRange = tostring(settings.hopRange or "19-22")
     settings.autoServerHop = settings.autoServerHop == true
     settings.populationThreshold = math.clamp(math.floor(tonumber(settings.populationThreshold) or 17), 2, 24)
@@ -53,6 +55,7 @@ function Config.create(dependencies)
         local data = {
             webhookToggle = settings.webhookToggle,
             webhookUrl = settings.webhookUrl,
+            fpsLimit = settings.fpsLimit,
             gamepassId = settings.gamepassId,
             donatePassId = settings.donatePassId,
             donateAmount = settings.donateAmount,
@@ -128,6 +131,10 @@ function Config.create(dependencies)
 
         if decoded.webhookToggle ~= nil then settings.webhookToggle = decoded.webhookToggle end
         settings.webhookUrl = decoded.webhookUrl or settings.webhookUrl
+        if decoded.fpsLimit ~= nil then
+            local fpsLimit = tonumber(decoded.fpsLimit)
+            settings.fpsLimit = fpsLimit and fpsLimit == math.floor(fpsLimit) and fpsLimit >= 5 and fpsLimit <= 1000 and fpsLimit or nil
+        end
         if decoded.gamepassId ~= nil then settings.gamepassId = tostring(decoded.gamepassId) end
         if decoded.donatePassId ~= nil then settings.donatePassId = tostring(decoded.donatePassId) end
         if decoded.donateAmount ~= nil then settings.donateAmount = math.clamp(math.floor(tonumber(decoded.donateAmount) or settings.donateAmount), 1, 10000) end
