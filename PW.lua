@@ -873,6 +873,7 @@ local activeHopTask = nil
 local activeHopStartedAt = nil
 local activeHopTimedOut = false
 local activeHopTimeoutStatus = nil
+local lastTeleportFailureAt = 0
 local lastHopMinPlayers, lastHopMaxPlayers = 19, 22
 local activeHopMinPlayers, activeHopMaxPlayers = 19, 22
 local function resolveHopRange(minPlayers, maxPlayers)
@@ -925,13 +926,35 @@ serverHopNow = function(minPlayers, maxPlayers, persistent)
             if not activeHopTimedOut then
                 SETTINGS.serverHopStatus = ("Searching for servers %d/5 · target %d–%d players"):format(cycleAttempt, targetMin, targetMax)
             end
+            local failureMarker = lastTeleportFailureAt
+            local searchJobId = tostring(game.JobId)
             local searchCallOk, found = pcall(serverSearchAttempt, targetMin, targetMax, true)
             if searchCallOk and found then
                 SETTINGS.serverHopStatus = activeHopTimedOut
                     and (activeHopTimeoutStatus or "Took too long, retrying preferred server search...")
                     or ("Found a %d-player server; joining..."):format(targetMin)
-                activeHopTask = nil
-                return
+                local waitStarted = os.clock()
+                while LocalPlayer and LocalPlayer.Parent
+                    and tostring(game.JobId) == searchJobId
+                    and os.clock() - waitStarted < 20
+                    and lastTeleportFailureAt <= failureMarker do
+                    task.wait(0.2)
+                end
+                if not LocalPlayer or not LocalPlayer.Parent then break end
+                if tostring(game.JobId) ~= searchJobId then
+                    activeHopTask = nil
+                    activeHopStartedAt = nil
+                    activeHopTimedOut = false
+                    activeHopTimeoutStatus = nil
+                    SETTINGS.serverHopActive = false
+                    return
+                end
+                if lastTeleportFailureAt > failureMarker then
+                    SETTINGS.serverHopStatus = "Teleport failed; retrying..."
+                else
+                    SETTINGS.serverHopStatus = "Teleport did not complete; retrying..."
+                end
+                task.wait(0.2)
             end
             if not searchCallOk then
                 warn("[PLS WAIT] Server search failed:", found)
@@ -955,13 +978,10 @@ serverHopNow = function(minPlayers, maxPlayers, persistent)
 end
 
 TeleportService.TeleportInitFailed:Connect(function(player, result, message, placeId)
-    if player ~= LocalPlayer or (placeId and tonumber(placeId) ~= PLACE_ID) then return end
-    SETTINGS.serverHopStatus = "Teleport failed; restarting preferred-server search..."
-    task.delay(0.5, function()
-        if LocalPlayer and LocalPlayer.Parent then
-            serverHopNow(lastHopMinPlayers, lastHopMaxPlayers, true)
-        end
-    end)
+    if (player and player ~= LocalPlayer) or (placeId and tonumber(placeId) ~= PLACE_ID) then return end
+    lastTeleportFailureAt = os.clock()
+    SETTINGS.serverHopStatus = "Teleport failed; retrying..."
+    warn("[PLS WAIT] Teleport failed; the active hop loop will retry:", result, message)
 end)
 
 local function hookPlayer(player)
