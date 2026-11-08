@@ -368,7 +368,7 @@ function UI.create(dependencies)
             titleLblTop.Size = UDim2.new(1, -56, 0, 36)
             titleLblTop.Position = UDim2.new(0, 14, 0, 0)
             titleLblTop.BackgroundTransparency = 1
-            titleLblTop.Text = "PLS WAIT 🥳 / 📧 p9sn"
+            titleLblTop.Text = "can i get a follow 😢 | @p9snn"
             titleLblTop.Font = Enum.Font.GothamBold
             titleLblTop.TextSize = 16
             titleLblTop.TextColor3 = Color3.fromRGB(240,240,240)
