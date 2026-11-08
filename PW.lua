@@ -1588,6 +1588,7 @@ if type(applyDonationSpin) ~= "function" or type(SpinFeature.ensureSpinPart) ~= 
     or type(SpinFeature.startBoothReturnMonitor) ~= "function"
     or type(SpinFeature.applyDonationHelicopter) ~= "function"
     or type(SpinFeature.applyDonationLap) ~= "function"
+    or type(SpinFeature.getActivityStatus) ~= "function"
     or type(SpinFeature.setHelicopterEnabled) ~= "function"
     or type(SpinFeature.ensureHelicopter) ~= "function" then
     warn("[PLS WAIT] Spin module is missing required feature methods.")
