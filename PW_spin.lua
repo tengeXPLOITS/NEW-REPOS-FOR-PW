@@ -25,15 +25,15 @@ function Spin.create(dependencies)
         CFrame.new(-9.13183594, 0.146320343, -74.3499756, -1, 0, 0, 0, 1, 0, 0, 0, -1),
         CFrame.new(50.9318237, 0.146320343, -60.9251099, -0.499959469, 0, 0.866048813, 0, 1, 0, -0.866048813, 0, -0.499959469),
     }
-    -- Lap route from the previous script's 1 Robux = 1 lap path.
-    local lapRoute = {
-        Vector3.new(166.584, 3.47699, 371.398),
-        Vector3.new(228.765, 3.57067, 332.55),
-        Vector3.new(225.878, 3.57066, 274.96),
-        Vector3.new(169.654, 4.11481, 232.826),
-        Vector3.new(102.625, 3.57066, 274.941),
-        Vector3.new(109.353, 3.57066, 351.28),
-    }
+    -- Build lap waypoints from the same X/Z path as helicopter flight, at ground height.
+    local function getLapRoute(groundY)
+        local route = {}
+        for _, flightPoint in ipairs(helicopterFlightRoute) do
+            local position = flightPoint.Position
+            route[#route + 1] = Vector3.new(position.X, groundY or (position.Y + 3.5), position.Z)
+        end
+        return route
+    end
     local currentHelicopterSpinTask
     local currentHelicopterIdleTask
     local currentLapTask
@@ -283,6 +283,7 @@ function Spin.create(dependencies)
                     if isSeated then preventSitting(humanoid) end
                 end)
 
+                local lapRoute = getLapRoute(root.Position.Y)
                 local nearestIndex = 1
                 local nearestDistance = math.huge
                 local nearestRoutePosition = lapRoute[1]
