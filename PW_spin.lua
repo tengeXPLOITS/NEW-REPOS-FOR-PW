@@ -40,6 +40,7 @@ function Spin.create(dependencies)
     local accumulatedSpinY
     local currentAstronautIdleTrack
     local pendingHelicopterRaisedAmount = 0
+    local helicopterStopAt = nil
     local pendingLapCount = 0
     local animateScriptToRestore
     local animateScriptWasEnabled
@@ -396,6 +397,7 @@ function Spin.create(dependencies)
 
     local function stopHelicopterSpin()
         pendingHelicopterRaisedAmount = 0
+        helicopterStopAt = nil
         if currentHelicopterSpinTask then
             pcall(function() task.cancel(currentHelicopterSpinTask) end)
             currentHelicopterSpinTask = nil
@@ -440,6 +442,7 @@ function Spin.create(dependencies)
                     local targetSpinSpeed = math.max(getHelicopterSpinSpeedForAmount(amount), helicopterTakeoffSpinSpeed)
                     local riseHeight = getHelicopterRiseHeight(amount, 24)
                     local flightDuration = getHelicopterFlightDuration(amount)
+                    helicopterStopAt = tick() + flightDuration + 12
                     local prepTargetCF = getHelicopterTargetCFrame(root)
                     local baseIdleSpeed = helicopterIdleSpinSpeed
                     local body = getHelicopterBody(root)
@@ -533,7 +536,9 @@ function Spin.create(dependencies)
                         if pendingHelicopterRaisedAmount > 0 then
                             local bonusAmount = math.max(1, tonumber(pendingHelicopterRaisedAmount) or 1)
                             pendingHelicopterRaisedAmount = 0
-                            flightDuration = math.min(130, flightDuration + math.max(8, getHelicopterFlightDuration(bonusAmount) * 0.25))
+                            local extendedFlightDuration = math.min(130, flightDuration + math.max(8, getHelicopterFlightDuration(bonusAmount) * 0.25))
+                            if helicopterStopAt then helicopterStopAt += extendedFlightDuration - flightDuration end
+                            flightDuration = extendedFlightDuration
                             targetSpinSpeed = math.max(targetSpinSpeed, getHelicopterSpinSpeedForAmount(bonusAmount))
                             riseHeight = math.max(riseHeight, getHelicopterRiseHeight(bonusAmount, 24))
                         end
@@ -638,6 +643,7 @@ function Spin.create(dependencies)
             end
 
             currentHelicopterSpinTask = nil
+            helicopterStopAt = nil
             if pendingLapCount > 0 and settings.robuxLap then
                 startRobuxLapTask()
             elseif settings.helicopterEnabled then
@@ -671,6 +677,20 @@ function Spin.create(dependencies)
         pendingLapCount += math.max(1, math.floor(delta))
         if currentHelicopterSpinTask or currentLapTask then return true end
         return startRobuxLapTask()
+    end
+
+    local function getActivityStatus()
+        local lapsLeft = settings.robuxLap and (pendingLapCount + (currentLapTask and 1 or 0)) or 0
+        local helicopterActive = settings.helicopterEnabled
+            and (currentHelicopterSpinTask ~= nil or pendingHelicopterRaisedAmount > 0)
+        local active = lapsLeft > 0 or helicopterActive
+        return {
+            active = active,
+            showLaps = settings.robuxLap and active,
+            lapsLeft = math.max(0, lapsLeft),
+            showHelicopter = settings.helicopterEnabled and active,
+            helicopterSeconds = helicopterStopAt and math.max(0, math.ceil(helicopterStopAt - tick())) or nil,
+        }
     end
 
     local function ensureSpinPart(character)
@@ -770,6 +790,7 @@ function Spin.create(dependencies)
         startBoothReturnMonitor = startBoothReturnMonitor,
         applyDonationHelicopter = applyDonationHelicopter,
         applyDonationLap = applyDonationLap,
+        getActivityStatus = getActivityStatus,
         setHelicopterEnabled = setHelicopterEnabled,
         ensureHelicopter = ensureHelicopter,
     }
