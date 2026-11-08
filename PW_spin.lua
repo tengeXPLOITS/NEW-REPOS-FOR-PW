@@ -284,14 +284,31 @@ function Spin.create(dependencies)
 
                 local nearestIndex = 1
                 local nearestDistance = math.huge
-                for routeIndex, routePosition in ipairs(lapRoute) do
-                    local distance = (root.Position - routePosition).Magnitude
+                local nearestRoutePosition = lapRoute[1]
+                local rootPositionXZ = Vector3.new(root.Position.X, 0, root.Position.Z)
+                for routeIndex, routeStart in ipairs(lapRoute) do
+                    local routeEnd = lapRoute[(routeIndex % #lapRoute) + 1]
+                    local segmentXZ = Vector3.new(routeEnd.X - routeStart.X, 0, routeEnd.Z - routeStart.Z)
+                    local segmentLengthSquared = segmentXZ:Dot(segmentXZ)
+                    local progress = 0
+                    if segmentLengthSquared > 1e-6 then
+                        local offsetXZ = rootPositionXZ - Vector3.new(routeStart.X, 0, routeStart.Z)
+                        progress = math.clamp(offsetXZ:Dot(segmentXZ) / segmentLengthSquared, 0, 1)
+                    end
+                    local routePosition = Vector3.new(
+                        routeStart.X + segmentXZ.X * progress,
+                        routeStart.Y + (routeEnd.Y - routeStart.Y) * progress,
+                        routeStart.Z + segmentXZ.Z * progress
+                    )
+                    local routePositionXZ = Vector3.new(routePosition.X, 0, routePosition.Z)
+                    local distance = (rootPositionXZ - routePositionXZ).Magnitude
                     if distance < nearestDistance then
                         nearestIndex = routeIndex
                         nearestDistance = distance
+                        nearestRoutePosition = routePosition
                     end
                 end
-                local startPosition = lapRoute[nearestIndex]
+                local startPosition = nearestRoutePosition
                 if not tweenRootToCFrame(root, CFrame.new(startPosition), function()
                     return settings.robuxLap and character == LocalPlayer.Character and root.Parent ~= nil
                 end) then
