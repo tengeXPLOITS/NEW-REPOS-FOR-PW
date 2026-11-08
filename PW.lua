@@ -832,6 +832,7 @@ local function serverSearchAttempt(minPlayers, maxPlayers, fast)
                     antiAfk = SETTINGS.antiAfk,
                     friendHop = SETTINGS.friendHop,
                     serverStayTime = SETTINGS.serverStayTime,
+                    fpsLimit = SETTINGS.fpsLimit,
                     persistToggles = SETTINGS.persistToggles,
                     hopRange = SETTINGS.hopRange,
                     spinSet = SETTINGS.spinSet,
