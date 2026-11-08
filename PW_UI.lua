@@ -124,6 +124,7 @@ function UI.create(dependencies)
                     local cfg = _G.__PLS_WAIT_CONFIG
                     if cfg.webhookToggle ~= nil then SETTINGS.webhookToggle = cfg.webhookToggle end
                     SETTINGS.webhookUrl = cfg.webhookUrl or SETTINGS.webhookUrl
+                    if cfg.fpsLimit ~= nil then SETTINGS.fpsLimit = cfg.fpsLimit end
                     if cfg.gamepassId ~= nil then SETTINGS.gamepassId = tostring(cfg.gamepassId) end
                     if cfg.donatePassId ~= nil then SETTINGS.donatePassId = tostring(cfg.donatePassId) end
                     if cfg.donateAmount ~= nil then SETTINGS.donateAmount = math.clamp(math.floor(tonumber(cfg.donateAmount) or SETTINGS.donateAmount), 1, 10000) end
@@ -164,6 +165,33 @@ function UI.create(dependencies)
             end)
 
             LoadSettings()
+            -- FPS caps are provided by some executors, not by the standard Roblox client API.
+            local function normalizeFpsLimit(value)
+                local fps = tonumber(value)
+                if not fps or fps ~= math.floor(fps) or fps < 5 or fps > 1000 then return nil end
+                return fps
+            end
+            local function applyFpsLimit(value)
+                local setter
+                pcall(function() setter = setfpscap end)
+                if type(setter) ~= "function" then
+                    local env
+                    pcall(function() if type(getgenv) == "function" then env = getgenv() end end)
+                    if type(env) == "table" then setter = env.setfpscap end
+                end
+                if type(setter) ~= "function" then
+                    return false, "This executor does not expose setfpscap."
+                end
+                return pcall(setter, value)
+            end
+            if SETTINGS.fpsLimit then
+                local savedFpsLimit = normalizeFpsLimit(SETTINGS.fpsLimit)
+                if savedFpsLimit then
+                    SETTINGS.fpsLimit = savedFpsLimit
+                    local applied, applyError = applyFpsLimit(savedFpsLimit)
+                    if not applied then warn("[PLS WAIT] Could not apply saved FPS limit:", applyError) end
+                end
+            end
             -- (initialization guard will be checked after SharedEnv is defined)
             local TweenService = game:GetService("TweenService")
             -- Provide a small UI helper used by buttons
@@ -1369,6 +1397,49 @@ function UI.create(dependencies)
                     end
                 end)
 
+                local fpsLimitLabel = Instance.new("TextLabel")
+                fpsLimitLabel.Size = UDim2.new(0, 120, 0, 20)
+                fpsLimitLabel.Position = UDim2.new(0, 10, 0, 322)
+                fpsLimitLabel.Text = "FPS Limit"
+                fpsLimitLabel.BackgroundTransparency = 1
+                fpsLimitLabel.TextColor3 = Color3.new(1, 1, 1)
+                fpsLimitLabel.Parent = frame
+                styleFeatureLabel(fpsLimitLabel)
+
+                local fpsLimitBox = Instance.new("TextBox")
+                fpsLimitBox.Size = UDim2.new(0, 100, 0, 24)
+                fpsLimitBox.Position = UDim2.new(0, 140, 0, 320)
+                fpsLimitBox.Text = SETTINGS.fpsLimit and tostring(SETTINGS.fpsLimit) or ""
+                fpsLimitBox.PlaceholderText = "5–1000"
+                fpsLimitBox.ClearTextOnFocus = false
+                fpsLimitBox.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+                fpsLimitBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+                fpsLimitBox.Font = Enum.Font.GothamMedium
+                fpsLimitBox.TextSize = 16
+                fpsLimitBox.TextXAlignment = Enum.TextXAlignment.Left
+                fpsLimitBox.Parent = frame
+                local fpsCorner = Instance.new("UICorner")
+                fpsCorner.Parent = fpsLimitBox
+                fpsLimitBox.FocusLost:Connect(function()
+                    local value = normalizeFpsLimit(fpsLimitBox.Text)
+                    if not value then
+                        fpsLimitBox.Text = SETTINGS.fpsLimit and tostring(SETTINGS.fpsLimit) or ""
+                        notify("FPS Limit", "Enter a whole number from 5 to 1000.", 4)
+                        return
+                    end
+                    SETTINGS.fpsLimit = value
+                    fpsLimitBox.Text = tostring(value)
+                    pcall(SaveSettings)
+                    local applied, applyError = applyFpsLimit(value)
+                    if applied then
+                        notify("FPS Limit", ("FPS cap set to %d."):format(value), 3)
+                    elseif tostring(applyError):find("does not expose setfpscap", 1, true) then
+                        notify("FPS Limit", "Saved, but this executor does not support FPS capping.", 5)
+                    else
+                        notify("FPS Limit", "Could not apply the FPS cap: " .. tostring(applyError), 5)
+                    end
+                end)
+
                 autoEmoteToggle.MouseButton1Click:Connect(function()
                     SETTINGS.emotePlaying = not SETTINGS.emotePlaying
                     autoEmoteToggle.Text = SETTINGS.emotePlaying and "ON" or "OFF"
@@ -2402,6 +2473,7 @@ function UI.create(dependencies)
                             antiAfk = SETTINGS.antiAfk,
                             friendHop = SETTINGS.friendHop,
                             serverStayTime = SETTINGS.serverStayTime,
+                fpsLimit = SETTINGS.fpsLimit,
                             persistToggles = SETTINGS.persistToggles,
                             spinOnDonation = SETTINGS.spinSet,
                             spinSet = SETTINGS.spinSet,
