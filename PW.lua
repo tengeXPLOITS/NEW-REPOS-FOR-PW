@@ -361,6 +361,7 @@ local function getRobloxAvatarImageUrl(userId)
 end
 
 local function postWebhookEvent(kind, data)
+    if kind == "donation" and parseAmount(data and data.amount) == 1 then return end
     if not SETTINGS.webhookToggle or not SETTINGS.webhookUrl or SETTINGS.webhookUrl == "" then return end
     if kind == "claim" or kind == "serverhop" then
         local signatureOk, signature = pcall(function()
@@ -406,6 +407,7 @@ local function postWebhookEvent(kind, data)
         end
         local fields = {
             { name = "Donor", value = donorName, inline = false },
+            { name = "Received By", value = "@" .. tostring(LocalPlayer and LocalPlayer.Name or "Unknown"), inline = false },
             { name = "Amount Given", value = tostring(amount), inline = true },
             { name = "Pending R$ (60%)", value = tostring(pending), inline = true },
             { name = "Unclaimed Robux", value = unclaimedRobux, inline = true },
@@ -832,6 +834,7 @@ local function serverSearchAttempt(minPlayers, maxPlayers, fast)
                     antiAfk = SETTINGS.antiAfk,
                     friendHop = SETTINGS.friendHop,
                     serverStayTime = SETTINGS.serverStayTime,
+                    boothPositionPreference = SETTINGS.boothPositionPreference,
                     fpsLimit = SETTINGS.fpsLimit,
                     persistToggles = SETTINGS.persistToggles,
                     hopRange = SETTINGS.hopRange,
@@ -1345,6 +1348,27 @@ local function computeStandPlacement(stand, playerPos, distanceAway)
     local basePos = pivot - frontDir * (distanceAway + 1.0) + Vector3.new(0,2,0)
     local awayDir = (basePos - pivot)
     if awayDir.Magnitude <= 1e-6 then awayDir = frontDir end
+
+    local positionPreference = tostring(SETTINGS.boothPositionPreference or "front"):lower()
+    if positionPreference == "left" or positionPreference == "right" then
+        local rightDir = standCFrame and Vector3.new(standCFrame.RightVector.X, 0, standCFrame.RightVector.Z)
+            or Vector3.new(-frontDir.Z, 0, frontDir.X)
+        if rightDir.Magnitude <= 1e-6 then rightDir = Vector3.new(-frontDir.Z, 0, frontDir.X) end
+        rightDir = rightDir.Unit
+        local sideSign = positionPreference == "left" and -1 or 1
+        basePos += rightDir * sideSign * 3
+
+        local forwardDir = Vector3.new(awayDir.X, 0, awayDir.Z)
+        if forwardDir.Magnitude <= 1e-6 then forwardDir = -frontDir end
+        forwardDir = forwardDir.Unit
+        local towardBooth = Vector3.new(pivot.X - basePos.X, 0, pivot.Z - basePos.Z)
+        local towardBoothSide = towardBooth - forwardDir * towardBooth:Dot(forwardDir)
+        if towardBoothSide.Magnitude > 1e-6 then
+            awayDir = (forwardDir + towardBoothSide.Unit * 0.22).Unit
+        else
+            awayDir = forwardDir
+        end
+    end
     return basePos, awayDir.Unit
 end
 
