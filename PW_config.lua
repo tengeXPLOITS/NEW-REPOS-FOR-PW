@@ -13,6 +13,9 @@ function Config.initializeSettings(settings, touchEnabled, defaultBoothText)
     if settings.autoUpdateBoothText == nil then settings.autoUpdateBoothText = true end
     settings.antiAfk = settings.antiAfk or false
     settings.serverStayTime = settings.serverStayTime or 30
+    local boothPositionPreference = tostring(settings.boothPositionPreference or "front"):lower()
+    if boothPositionPreference ~= "front" and boothPositionPreference ~= "left" and boothPositionPreference ~= "right" then boothPositionPreference = "front" end
+    settings.boothPositionPreference = boothPositionPreference
     local fpsLimit = tonumber(settings.fpsLimit)
     settings.fpsLimit = fpsLimit and fpsLimit == math.floor(fpsLimit) and fpsLimit >= 5 and fpsLimit <= 1000 and fpsLimit or nil
     settings.hopRange = tostring(settings.hopRange or "19-22")
@@ -56,6 +59,7 @@ function Config.create(dependencies)
             webhookToggle = settings.webhookToggle,
             webhookUrl = settings.webhookUrl,
             fpsLimit = settings.fpsLimit,
+            boothPositionPreference = settings.boothPositionPreference,
             gamepassId = settings.gamepassId,
             donatePassId = settings.donatePassId,
             donateAmount = settings.donateAmount,
@@ -134,6 +138,10 @@ function Config.create(dependencies)
         if decoded.fpsLimit ~= nil then
             local fpsLimit = tonumber(decoded.fpsLimit)
             settings.fpsLimit = fpsLimit and fpsLimit == math.floor(fpsLimit) and fpsLimit >= 5 and fpsLimit <= 1000 and fpsLimit or nil
+        end
+        if decoded.boothPositionPreference ~= nil then
+            local boothPositionPreference = tostring(decoded.boothPositionPreference):lower()
+            settings.boothPositionPreference = (boothPositionPreference == "front" or boothPositionPreference == "left" or boothPositionPreference == "right") and boothPositionPreference or "front"
         end
         if decoded.gamepassId ~= nil then settings.gamepassId = tostring(decoded.gamepassId) end
         if decoded.donatePassId ~= nil then settings.donatePassId = tostring(decoded.donatePassId) end
