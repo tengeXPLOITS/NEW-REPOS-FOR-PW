@@ -1356,7 +1356,7 @@ local function computeStandPlacement(stand, playerPos, distanceAway)
         if rightDir.Magnitude <= 1e-6 then rightDir = Vector3.new(-frontDir.Z, 0, frontDir.X) end
         rightDir = rightDir.Unit
         local sideSign = positionPreference == "left" and -1 or 1
-        basePos += rightDir * sideSign * 3
+        basePos = pivot + rightDir * sideSign * 6 + Vector3.new(0, 2, 0)
 
         local forwardDir = Vector3.new(awayDir.X, 0, awayDir.Z)
         if forwardDir.Magnitude <= 1e-6 then forwardDir = -frontDir end
