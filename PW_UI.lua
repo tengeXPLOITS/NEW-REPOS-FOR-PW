@@ -125,6 +125,7 @@ function UI.create(dependencies)
                     if cfg.webhookToggle ~= nil then SETTINGS.webhookToggle = cfg.webhookToggle end
                     SETTINGS.webhookUrl = cfg.webhookUrl or SETTINGS.webhookUrl
                     if cfg.fpsLimit ~= nil then SETTINGS.fpsLimit = cfg.fpsLimit end
+                    if cfg.boothPositionPreference ~= nil then SETTINGS.boothPositionPreference = cfg.boothPositionPreference end
                     if cfg.gamepassId ~= nil then SETTINGS.gamepassId = tostring(cfg.gamepassId) end
                     if cfg.donatePassId ~= nil then SETTINGS.donatePassId = tostring(cfg.donatePassId) end
                     if cfg.donateAmount ~= nil then SETTINGS.donateAmount = math.clamp(math.floor(tonumber(cfg.donateAmount) or SETTINGS.donateAmount), 1, 10000) end
@@ -474,7 +475,7 @@ function UI.create(dependencies)
             titleLblTop.Size = UDim2.new(1, -56, 0, 36)
             titleLblTop.Position = UDim2.new(0, 14, 0, 0)
             titleLblTop.BackgroundTransparency = 1
-            titleLblTop.Text = "with God, anything is possible | @p9snn"
+            titleLblTop.Text = "PLS WAIT 🥳 / 📧 p9sn"
             titleLblTop.Font = Enum.Font.GothamBold
             titleLblTop.TextSize = 16
             titleLblTop.TextColor3 = Color3.fromRGB(240,240,240)
@@ -851,6 +852,79 @@ function UI.create(dependencies)
                     end
                 end)
 
+                local boothPositionLabel = Instance.new("TextLabel")
+                boothPositionLabel.Size = UDim2.new(0, 180, 0, 20)
+                boothPositionLabel.Position = UDim2.new(0, 10, 0, 286)
+                boothPositionLabel.BackgroundTransparency = 1
+                boothPositionLabel.Text = "Booth Position Preference"
+                boothPositionLabel.TextColor3 = Color3.new(1, 1, 1)
+                boothPositionLabel.Font = Enum.Font.GothamMedium
+                boothPositionLabel.TextSize = 15
+                boothPositionLabel.TextXAlignment = Enum.TextXAlignment.Left
+                boothPositionLabel.Parent = boothFrame
+
+                local boothPositionNames = {
+                    front = "Front and Forward",
+                    left = "Left",
+                    right = "Right",
+                }
+                local boothPositionValue = tostring(SETTINGS.boothPositionPreference or "front"):lower()
+                if not boothPositionNames[boothPositionValue] then boothPositionValue = "front" end
+                SETTINGS.boothPositionPreference = boothPositionValue
+
+                local boothPositionButton = Instance.new("TextButton")
+                boothPositionButton.Size = UDim2.new(0, 220, 0, 28)
+                boothPositionButton.Position = UDim2.new(0, 10, 0, 310)
+                boothPositionButton.Text = boothPositionNames[boothPositionValue] .. "  ▼"
+                boothPositionButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+                boothPositionButton.TextColor3 = Color3.new(1, 1, 1)
+                boothPositionButton.Font = Enum.Font.GothamMedium
+                boothPositionButton.TextSize = 14
+                boothPositionButton.ZIndex = 30
+                boothPositionButton.Parent = boothFrame
+                local boothPositionCorner = Instance.new("UICorner")
+                boothPositionCorner.Parent = boothPositionButton
+                styleButton(boothPositionButton)
+
+                local boothPositionMenu = Instance.new("Frame")
+                boothPositionMenu.Size = UDim2.new(0, 220, 0, 90)
+                boothPositionMenu.Position = UDim2.new(0, 10, 0, 340)
+                boothPositionMenu.BackgroundColor3 = Color3.fromRGB(38, 38, 38)
+                boothPositionMenu.BorderSizePixel = 0
+                boothPositionMenu.Visible = false
+                boothPositionMenu.ZIndex = 31
+                boothPositionMenu.Parent = boothFrame
+                local boothMenuCorner = Instance.new("UICorner")
+                boothMenuCorner.Parent = boothPositionMenu
+
+                for index, value in ipairs({ "front", "left", "right" }) do
+                    local optionValue = value
+                    local optionButton = Instance.new("TextButton")
+                    optionButton.Size = UDim2.new(1, -8, 0, 26)
+                    optionButton.Position = UDim2.new(0, 4, 0, 4 + ((index - 1) * 28))
+                    optionButton.Text = boothPositionNames[optionValue]
+                    optionButton.BackgroundColor3 = Color3.fromRGB(55, 55, 55)
+                    optionButton.TextColor3 = Color3.new(1, 1, 1)
+                    optionButton.Font = Enum.Font.GothamMedium
+                    optionButton.TextSize = 13
+                    optionButton.ZIndex = 32
+                    optionButton.Parent = boothPositionMenu
+                    local optionCorner = Instance.new("UICorner")
+                    optionCorner.Parent = optionButton
+                    optionButton.MouseButton1Click:Connect(function()
+                        boothPositionValue = optionValue
+                        SETTINGS.boothPositionPreference = optionValue
+                        boothPositionButton.Text = boothPositionNames[optionValue] .. "  ▼"
+                        boothPositionMenu.Visible = false
+                        pcall(SaveSettings)
+                        notify("Booth Position", "Preference set to " .. boothPositionNames[optionValue] .. ".", 3)
+                    end)
+                end
+
+                boothPositionButton.MouseButton1Click:Connect(function()
+                    boothPositionMenu.Visible = not boothPositionMenu.Visible
+                    boothPositionButton.Text = boothPositionNames[boothPositionValue] .. (boothPositionMenu.Visible and "  ▲" or "  ▼")
+                end)
                 local goalBarLabel = Instance.new("TextLabel")
                 goalBarLabel.Size = UDim2.new(1, -20, 0, 20)
                 goalBarLabel.Position = UDim2.new(0, 10, 0, 218)
@@ -2473,6 +2547,7 @@ function UI.create(dependencies)
                             antiAfk = SETTINGS.antiAfk,
                             friendHop = SETTINGS.friendHop,
                             serverStayTime = SETTINGS.serverStayTime,
+                            boothPositionPreference = SETTINGS.boothPositionPreference,
                 fpsLimit = SETTINGS.fpsLimit,
                             persistToggles = SETTINGS.persistToggles,
                             spinOnDonation = SETTINGS.spinSet,
