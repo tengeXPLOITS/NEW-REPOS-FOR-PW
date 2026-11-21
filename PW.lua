@@ -901,16 +901,99 @@ local function getPublicServerCandidates()
     return candidates
 end
 
--- Single search attempt: prefer the game's live server list and join the fullest eligible server.
-local function serverSearchAttempt(minPlayers, maxPlayers, fast)
+local trackedPresenceCache = {}
+local presenceEndpoint = "https://pw-presence-tracker.pw-presence-tracker.workers.dev"
+local function getTrackedUiPresence(jobId)
+    local serverId = tostring(jobId or "")
+    if serverId == "" then return nil end
+    local now = os.clock()
+    local cached = trackedPresenceCache[serverId]
+    if cached then
+        local ttl = cached.available and 15 or 5
+        if now - cached.checkedAt < ttl then
+            if not cached.available then return nil end
+            return cached.hasUsers
+        end
+    end
+
+    local url = presenceEndpoint .. "/v1/stats?placeId="
+        .. HttpService:UrlEncode(tostring(PLACE_ID))
+        .. "&jobId=" .. HttpService:UrlEncode(serverId)
+    local requestOk, response = pcall(function()
+        if httprequest then
+            return httprequest({ Url = url, Method = "GET", Headers = { ["User-Agent"] = "Roblox" } })
+        end
+        return { Body = HttpService:GetAsync(url) }
+    end)
+    if not requestOk or type(response) ~= "table" then
+        trackedPresenceCache[serverId] = { available = false, checkedAt = now }
+        return nil
+    end
+    if response.Success == false or response.success == false then
+        trackedPresenceCache[serverId] = { available = false, checkedAt = now }
+        return nil
+    end
+    local statusValue = response.StatusCode or response.statusCode or response.Status or response.status
+    local statusCode = tonumber(statusValue)
+    if not statusCode and type(statusValue) == "string" then
+        statusCode = tonumber(statusValue:match("(%d%d%d)"))
+    end
+    if statusCode and (statusCode < 200 or statusCode >= 300) then
+        trackedPresenceCache[serverId] = { available = false, checkedAt = now }
+        return nil
+    end
+    local body = response.Body or response.body or response.ResponseBody or response.responseBody or response.text
+    if type(body) ~= "string" or body == "" then
+        trackedPresenceCache[serverId] = { available = false, checkedAt = now }
+        return nil
+    end
+    local decodeOk, decoded = pcall(function() return HttpService:JSONDecode(body) end)
+    local activeInServer = decodeOk and type(decoded) == "table" and tonumber(decoded.activeInServer)
+    if not activeInServer then
+        trackedPresenceCache[serverId] = { available = false, checkedAt = now }
+        return nil
+    end
+    local hasUsers = activeInServer > 0
+    trackedPresenceCache[serverId] = {
+        available = true,
+        hasUsers = hasUsers,
+        checkedAt = now,
+    }
+    return hasUsers
+end
+
+local function userHopAllowsCandidate(serverId)
+    local hasUsers = getTrackedUiPresence(serverId)
+    if hasUsers == nil then
+        SETTINGS.serverHopStatus = "User Hop could not verify this server; retrying..."
+        return false
+    end
+    if hasUsers then
+        SETTINGS.serverHopStatus = "Skipping a server with another UI user..."
+        return false
+    end
+    return true
+end
+
+-- Search a selected source, or keep the legacy in-game-first fallback for automated hops.
+local function serverSearchAttempt(minPlayers, maxPlayers, searchSource)
     serverHopAttemptCount += 1
     minPlayers = math.clamp(math.floor(tonumber(minPlayers) or 19), 1, 24)
     maxPlayers = math.clamp(math.floor(tonumber(maxPlayers) or 22), minPlayers, 24)
 
-    SETTINGS.serverHopStatus = "Fetching servers through server list..."
-    local candidates = getGameServerCandidates()
-    if not candidates then
+    local candidates
+    if searchSource == "roblox" then
+        SETTINGS.serverHopStatus = "Fetching servers through Roblox..."
         candidates = getPublicServerCandidates()
+    elseif searchSource == "ingame" then
+        SETTINGS.serverHopStatus = "Fetching servers through in-game list..."
+        candidates = getGameServerCandidates()
+    else
+        SETTINGS.serverHopStatus = "Fetching servers through server list..."
+        candidates = getGameServerCandidates()
+        if not candidates then
+            candidates = getPublicServerCandidates()
+        end
     end
     if type(candidates) ~= "table" or #candidates == 0 then return false end
     table.sort(candidates, function(a, b)
@@ -924,7 +1007,8 @@ local function serverSearchAttempt(minPlayers, maxPlayers, fast)
         local populationAfterJoin = playing + 1
         if server.id and tostring(server.id) ~= tostring(game.JobId)
             and playing < capacity and populationAfterJoin <= capacity
-            and playing >= minPlayers and playing <= maxPlayers then
+            and playing >= minPlayers and playing <= maxPlayers
+            and (SETTINGS.userHop ~= true or userHopAllowsCandidate(server.id)) then
             -- Queue this script to re-run on the destination and pass current settings via _G.
             local ok2, cfgJson = pcall(function()
                 return HttpService:JSONEncode({
@@ -946,6 +1030,7 @@ local function serverSearchAttempt(minPlayers, maxPlayers, fast)
                     anonymousMode = SETTINGS.anonymousMode == true,
                     staffHop = SETTINGS.staffHop,
                     friendHop = SETTINGS.friendHop,
+                    userHop = SETTINGS.userHop == true,
                     chatAutoThankYou = SETTINGS.chatAutoThankYou,
                     thankYouMessages = SETTINGS.thankYouMessages,
                     serverStayTime = SETTINGS.serverStayTime,
@@ -1007,6 +1092,7 @@ local activeHopTimeoutStatus = nil
 local lastTeleportFailureAt = 0
 local lastHopMinPlayers, lastHopMaxPlayers = 19, 22
 local activeHopMinPlayers, activeHopMaxPlayers = 19, 22
+local activeHopSearchSource = nil
 local function resolveHopRange(minPlayers, maxPlayers)
     if minPlayers == nil or maxPlayers == nil then
         local savedRange = tostring(SETTINGS.hopRange or "19-22"):lower():gsub("%s+", "")
@@ -1030,11 +1116,17 @@ local function resolveHopRange(minPlayers, maxPlayers)
     return minPlayers, maxPlayers
 end
 
-serverHopNow = function(minPlayers, maxPlayers, persistent)
+serverHopNow = function(minPlayers, maxPlayers, persistent, searchSource)
     minPlayers, maxPlayers = resolveHopRange(minPlayers, maxPlayers)
     lastHopMinPlayers, lastHopMaxPlayers = minPlayers, maxPlayers
     activeHopMinPlayers, activeHopMaxPlayers = minPlayers, maxPlayers
-    if activeHopTask then return activeHopTask end
+    if activeHopTask then
+        if searchSource == "roblox" or searchSource == "ingame" then
+            activeHopSearchSource = searchSource
+        end
+        return activeHopTask
+    end
+    activeHopSearchSource = (searchSource == "roblox" or searchSource == "ingame") and searchSource or nil
     serverHopAttemptCount = 0
     activeHopStartedAt = activeHopStartedAt or os.clock()
     SETTINGS.serverHopActive = true
@@ -1060,7 +1152,7 @@ serverHopNow = function(minPlayers, maxPlayers, persistent)
             end
             local failureMarker = lastTeleportFailureAt
             local searchJobId = tostring(game.JobId)
-            local searchCallOk, found = pcall(serverSearchAttempt, targetMin, targetMax, true)
+            local searchCallOk, found = pcall(serverSearchAttempt, targetMin, targetMax, activeHopSearchSource)
             if searchCallOk and found then
                 SETTINGS.serverHopStatus = activeHopTimedOut
                     and (activeHopTimeoutStatus or "Took too long, retrying preferred server search...")
@@ -1078,6 +1170,7 @@ serverHopNow = function(minPlayers, maxPlayers, persistent)
                     activeHopStartedAt = nil
                     activeHopTimedOut = false
                     activeHopTimeoutStatus = nil
+                    activeHopSearchSource = nil
                     SETTINGS.serverHopActive = false
                     return
                 end
@@ -1104,6 +1197,7 @@ serverHopNow = function(minPlayers, maxPlayers, persistent)
         activeHopStartedAt = nil
         activeHopTimedOut = false
         activeHopTimeoutStatus = nil
+        activeHopSearchSource = nil
         SETTINGS.serverHopActive = false
     end)
     return activeHopTask
