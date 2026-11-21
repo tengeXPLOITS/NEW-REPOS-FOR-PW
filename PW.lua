@@ -1049,6 +1049,7 @@ local function serverSearchAttempt(minPlayers, maxPlayers, searchSource)
                     emoteId = SETTINGS.emoteId,
                     emotePlaying = SETTINGS.emotePlaying and true or false,
                     autoServerHop = SETTINGS.autoServerHop,
+                    autoHopSearchSource = SETTINGS.autoHopSearchSource,
                     pendingServerHopWebhook = {
                         serverId = tostring(server.id),
                         players = playing,
