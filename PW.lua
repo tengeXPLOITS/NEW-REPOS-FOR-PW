@@ -453,16 +453,29 @@ local function postWebhookEvent(kind, data)
             table.insert(embeds, claimEmbed)
         elseif kind == "serverhop" then
             local initiator = tostring(data and data.user or "Unknown")
-            local players = tostring(data and data.players or "")
+            local serverId = tostring(data and data.serverId or "Unavailable")
+            local players = tonumber(data and data.players) or 0
+            local maxPlayers = tonumber(data and data.maxPlayers) or 24
             local range = tostring(data and data.range or "any")
+            local region = tostring(data and data.region or "Unknown")
+            local source = tostring(data and data.source or "Unknown")
+            local attempts = math.max(1, tonumber(data and data.attempts) or 1)
+            local retries = math.max(0, tonumber(data and data.retries) or (attempts - 1))
             local auto = tostring((data and data.auto) and "Yes" or "No")
+            local hopTimestamp = tonumber(data and data.timestamp) or os.time()
             table.insert(embeds, {
-                title = "Server Hop Triggered 🔀",
+                title = "SERVER HOP SUCCESS 🔀",
                 color = 0x3498DB,
+                timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ", hopTimestamp),
                 fields = {
                     { name = "Initiator 👤", value = initiator, inline = false },
-                    { name = "Players Online 👥", value = players, inline = true },
-                    { name = "Range", value = range, inline = true },
+                    { name = "Selected Server ID", value = serverId, inline = false },
+                    { name = "Players Online 👥", value = ("%d / %d"):format(players, maxPlayers), inline = true },
+                    { name = "Region", value = region, inline = true },
+                    { name = "Selected From", value = source, inline = true },
+                    { name = "Target Range", value = range, inline = true },
+                    { name = "Retries", value = tostring(retries), inline = true },
+                    { name = "Search Attempts", value = tostring(attempts), inline = true },
                     { name = "Auto Hop", value = auto, inline = true },
                 },
             })
@@ -472,14 +485,7 @@ local function postWebhookEvent(kind, data)
     end
 
     local payload
-    if kind == "claim" and data and data.slot ~= nil then
-        payload = {
-            username = "PlsWait",
-            content = ("@%s claimed stand #%s"):format(tostring(LocalPlayer and LocalPlayer.Name or "Unknown"), tostring(data.slot)),
-        }
-    else
-        payload = { username = "PlsWait", embeds = embeds }
-    end
+    payload = { username = "PlsWait", embeds = embeds }
     local body = HttpService:JSONEncode(payload)
     pcall(function()
         if performHttpRequest then
@@ -795,6 +801,7 @@ end
 local serverPageCursor = nil
 local gameServerCache = {}
 local gameServerVersion = 0
+local serverHopAttemptCount = 0
 
 local function countCachedGameServers()
     local count = 0
@@ -841,6 +848,7 @@ local function getGameServerCandidates()
                 playing = playing,
                 maxPlayers = capacity,
                 region = tostring(record[4] or ""),
+                source = "In-game server list",
             })
         end
     end
@@ -873,6 +881,8 @@ local function getPublicServerCandidates()
             id = server.id,
             playing = tonumber(server.playing) or 0,
             maxPlayers = math.min(24, tonumber(server.maxPlayers) or 24),
+            region = tostring(server.region or "Unknown"),
+            source = "Roblox public server list",
         })
     end
     return candidates
@@ -880,6 +890,7 @@ end
 
 -- Single search attempt: prefer the game's live server list and join the fullest eligible server.
 local function serverSearchAttempt(minPlayers, maxPlayers, fast)
+    serverHopAttemptCount += 1
     minPlayers = math.clamp(math.floor(tonumber(minPlayers) or 19), 1, 24)
     maxPlayers = math.clamp(math.floor(tonumber(maxPlayers) or 22), minPlayers, 24)
 
@@ -907,14 +918,22 @@ local function serverSearchAttempt(minPlayers, maxPlayers, fast)
                     webhookToggle = SETTINGS.webhookToggle,
                     webhookUrl = SETTINGS.webhookUrl,
                     gamepassId = SETTINGS.gamepassId,
+                    donatePassId = SETTINGS.donatePassId,
+                    donateAmount = SETTINGS.donateAmount,
+                    donateTargetUsername = SETTINGS.donateTargetUsername,
+                    autoDonateEnabled = SETTINGS.autoDonateEnabled,
                     claimPrice = SETTINGS.claimPrice,
                     autoClaimPendingRobux = SETTINGS.autoClaimPendingRobux,
                     autoClaimThreshold = SETTINGS.autoClaimThreshold,
                     autoUpdateBoothText = SETTINGS.autoUpdateBoothText,
                     boothText = SETTINGS.boothText,
                     antiAfk = SETTINGS.antiAfk,
+                    touchPreventAFK = SETTINGS.touchPreventAFK,
                     anonymousMode = SETTINGS.anonymousMode == true,
+                    staffHop = SETTINGS.staffHop,
                     friendHop = SETTINGS.friendHop,
+                    chatAutoThankYou = SETTINGS.chatAutoThankYou,
+                    thankYouMessages = SETTINGS.thankYouMessages,
                     serverStayTime = SETTINGS.serverStayTime,
                     boothPositionPreference = SETTINGS.boothPositionPreference,
                     fpsLimit = SETTINGS.fpsLimit,
@@ -931,6 +950,19 @@ local function serverSearchAttempt(minPlayers, maxPlayers, fast)
                     emoteId = SETTINGS.emoteId,
                     emotePlaying = SETTINGS.emotePlaying and true or false,
                     autoServerHop = SETTINGS.autoServerHop,
+                    pendingServerHopWebhook = {
+                        serverId = tostring(server.id),
+                        players = playing,
+                        maxPlayers = capacity,
+                        region = tostring(server.region or "Unknown"),
+                        source = tostring(server.source or "Unknown"),
+                        range = ("%d-%d"):format(minPlayers, maxPlayers),
+                        attempts = math.max(1, serverHopAttemptCount),
+                        retries = math.max(0, serverHopAttemptCount - 1),
+                        auto = SETTINGS.autoServerHop == true,
+                        user = tostring(LocalPlayer and LocalPlayer.Name or "Unknown"),
+                        timestamp = os.time(),
+                    },
                 })
             end)
             local qcore = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/tengeXPLOITS/NEW-REPOS-FOR-PW/main/PW.lua"))()'
@@ -989,6 +1021,7 @@ serverHopNow = function(minPlayers, maxPlayers, persistent)
     lastHopMinPlayers, lastHopMaxPlayers = minPlayers, maxPlayers
     activeHopMinPlayers, activeHopMaxPlayers = minPlayers, maxPlayers
     if activeHopTask then return activeHopTask end
+    serverHopAttemptCount = 0
     activeHopStartedAt = activeHopStartedAt or os.clock()
     SETTINGS.serverHopActive = true
     activeHopTask = task.spawn(function()
@@ -1630,9 +1663,7 @@ local function claimEmptyStands()
                 end
 
                 if claimOk and isOwnedByLocalPlayer(target) then
-                    pcall(function()
-                        postWebhookEvent("claim", { slot = slot, result = claimResult })
-                    end)
+
                     local finalPos, finalDir = computeStandPlacement(target.stand, playerPos, distanceAway)
                     if finalPos and finalDir then
                         moveCharacterToPosition(finalPos, "teleport", finalDir)
@@ -1728,6 +1759,7 @@ local uiInitialized, uiError = pcall(function()
         sendPlainWebhook = sendPlainWebhook,
         serverHopNow = serverHopNow,
         serverSearchAttempt = serverSearchAttempt,
+        resetServerHopAttemptCount = function() serverHopAttemptCount = 0 end,
         simulateTouchTapPulse = simulateTouchTapPulse,
         startDonationMonitor = startDonationMonitor,
         stopDonationMonitor = stopDonationMonitor,
