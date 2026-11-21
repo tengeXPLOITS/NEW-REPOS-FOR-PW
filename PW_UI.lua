@@ -183,6 +183,9 @@ function UI.create(dependencies)
                     if cfg.staffHop ~= nil then SETTINGS.staffHop = cfg.staffHop end
                     if cfg.friendHop ~= nil then SETTINGS.friendHop = cfg.friendHop end
                     if cfg.userHop ~= nil then SETTINGS.userHop = cfg.userHop == true end
+                    if cfg.autoHopSearchSource ~= nil then
+                        SETTINGS.autoHopSearchSource = cfg.autoHopSearchSource == "ingame" and "ingame" or "roblox"
+                    end
                     if cfg.chatAutoThankYou ~= nil then SETTINGS.chatAutoThankYou = cfg.chatAutoThankYou end
                     if cfg.thankYouMessages ~= nil and type(cfg.thankYouMessages) == "table" then SETTINGS.thankYouMessages = cfg.thankYouMessages end
                     if cfg.autoServerHop ~= nil then autoServerHopEnabled = cfg.autoServerHop end
@@ -1983,6 +1986,33 @@ function UI.create(dependencies)
                 atCorner.Parent = autoToggle
                 autoToggle.Parent = frame
                 styleButton(autoToggle)
+
+                local autoSourceButton = Instance.new("TextButton")
+                autoSourceButton.Name = "AutoHopSearchSource"
+                autoSourceButton.Size = UDim2.new(0,170,0,24)
+                autoSourceButton.Position = UDim2.new(0,210,0,160)
+                autoSourceButton.Font = Enum.Font.GothamSemibold
+                autoSourceButton.TextSize = 10
+                autoSourceButton.TextColor3 = Color3.fromRGB(255,255,255)
+                autoSourceButton.BackgroundColor3 = Color3.fromRGB(70,70,70)
+                autoSourceButton.Parent = frame
+                local function updateAutoSourceButton()
+                    if SETTINGS.autoHopSearchSource == "ingame" then
+                        autoSourceButton.Text = "AUTO SOURCE: IN-GAME LIST [SLOW]"
+                    else
+                        autoSourceButton.Text = "AUTO SOURCE: ROBLOX [FAST]"
+                    end
+                end
+                updateAutoSourceButton()
+                local autoSourceCorner = Instance.new("UICorner")
+                autoSourceCorner.Parent = autoSourceButton
+                styleButton(autoSourceButton)
+                autoSourceButton.MouseButton1Click:Connect(function()
+                    SETTINGS.autoHopSearchSource = SETTINGS.autoHopSearchSource == "ingame" and "roblox" or "ingame"
+                    updateAutoSourceButton()
+                    pcall(SaveSettings)
+                end)
+
                 autoToggle.MouseButton1Click:Connect(function()
                     autoServerHopEnabled = not autoServerHopEnabled
                     autoToggle.Text = autoServerHopEnabled and "ON" or "OFF"
@@ -1999,7 +2029,7 @@ function UI.create(dependencies)
                                 if not autoServerHopEnabled then break end
                                 local txt = hopRangeText or "19-22"
                                 local mn, mx = parseRange(txt)
-                                if mn then serverHopNow(mn, mx, true) end
+                                if mn then serverHopNow(mn, mx, true, SETTINGS.autoHopSearchSource) end
                             end
                             autoServerHopTask = nil
                         end)
@@ -2851,7 +2881,7 @@ function UI.create(dependencies)
                         if not autoServerHopEnabled then break end
                         local txt = hopRangeText or "19-22"
                         local mn, mx = parseRange(txt)
-                        if mn then serverHopNow(mn, mx, true) end
+                        if mn then serverHopNow(mn, mx, true, SETTINGS.autoHopSearchSource) end
                     end
                     autoServerHopTask = nil
                 end)
