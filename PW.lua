@@ -561,6 +561,19 @@ local function sendChatMessage(msg)
     return false, "The local player is unavailable."
 end
 
+local DONATION_EMOTE_COMMANDS = { "/e wave", "/e cheer", "/e laugh" }
+
+local function sendDonationEmote()
+    if not SETTINGS.donationEmoteEnabled then return end
+    local command = DONATION_EMOTE_COMMANDS[math.random(1, #DONATION_EMOTE_COMMANDS)]
+    task.spawn(function()
+        local sent, sendError = sendChatMessage(command)
+        if not sent then
+            warn("[PLS WAIT] Could not send donation emote command:", sendError)
+        end
+    end)
+end
+
 local function sendThankYouMessage(delta, immediate)
     if not SETTINGS.chatAutoThankYou then return end
     if type(delta) ~= "number" then delta = 0 end
@@ -922,6 +935,7 @@ local function serverSearchAttempt(minPlayers, maxPlayers, fast)
                     donateAmount = SETTINGS.donateAmount,
                     donateTargetUsername = SETTINGS.donateTargetUsername,
                     autoDonateEnabled = SETTINGS.autoDonateEnabled,
+                    donationEmoteEnabled = SETTINGS.donationEmoteEnabled == true,
                     claimPrice = SETTINGS.claimPrice,
                     autoClaimPendingRobux = SETTINGS.autoClaimPendingRobux,
                     autoClaimThreshold = SETTINGS.autoClaimThreshold,
@@ -1164,6 +1178,7 @@ local function startDonationMonitor()
                     timestamp = os.time(),
                 })
                 notify("Donation", ("%d received from %s. Pending: %d"):format(delta, donorName, pending), 5)
+                sendDonationEmote()
                 if not helicopterSequenceStarted then
                     sendThankYouMessage(delta)
                     applyDonationSpin(delta)
@@ -1741,6 +1756,7 @@ local uiInitialized, uiError = pcall(function()
         Players = Players,
         ReplicatedStorage = ReplicatedStorage,
         HttpService = HttpService,
+        httpRequest = httprequest,
         UserInputService = UserInputService,
         settings = SETTINGS,
         ConfigModule = ConfigModule,
