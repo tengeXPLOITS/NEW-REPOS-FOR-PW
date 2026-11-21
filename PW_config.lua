@@ -21,6 +21,7 @@ function Config.initializeSettings(settings, touchEnabled, defaultBoothText)
     settings.fpsLimit = fpsLimit and fpsLimit == math.floor(fpsLimit) and fpsLimit >= 5 and fpsLimit <= 1000 and fpsLimit or nil
     settings.hopRange = tostring(settings.hopRange or "19-22")
     settings.autoServerHop = settings.autoServerHop == true
+    settings.autoHopSearchSource = settings.autoHopSearchSource == "ingame" and "ingame" or "roblox"
     settings.populationThreshold = math.clamp(math.floor(tonumber(settings.populationThreshold) or 17), 2, 24)
     settings.persistToggles = settings.persistToggles or false
     settings.touchPreventAFK = settings.touchPreventAFK or (touchEnabled and true or false)
@@ -83,6 +84,7 @@ function Config.create(dependencies)
             robuxLap = settings.robuxLap,
             populationHopper = settings.populationHopper,
             populationThreshold = settings.populationThreshold,
+            autoHopSearchSource = settings.autoHopSearchSource,
             emoteId = settings.emoteId,
             boothText = settings.boothText,
             staffHop = settings.staffHop,
@@ -179,6 +181,9 @@ function Config.create(dependencies)
         if decoded.helicopterEnabled ~= nil then settings.helicopterEnabled = decoded.helicopterEnabled end
         if decoded.robuxLap ~= nil then settings.robuxLap = decoded.robuxLap end
         if decoded.populationHopper ~= nil then settings.populationHopper = decoded.populationHopper end
+        if decoded.autoHopSearchSource ~= nil then
+            settings.autoHopSearchSource = decoded.autoHopSearchSource == "ingame" and "ingame" or "roblox"
+        end
         if decoded.populationThreshold ~= nil then
             settings.populationThreshold = math.clamp(math.floor(tonumber(decoded.populationThreshold) or settings.populationThreshold or 17), 2, 24)
         end
