@@ -883,6 +883,7 @@ local function serverSearchAttempt(minPlayers, maxPlayers, fast)
     minPlayers = math.clamp(math.floor(tonumber(minPlayers) or 19), 1, 24)
     maxPlayers = math.clamp(math.floor(tonumber(maxPlayers) or 22), minPlayers, 24)
 
+    SETTINGS.serverHopStatus = "Fetching servers through server list..."
     local candidates = getGameServerCandidates()
     if not candidates then
         candidates = getPublicServerCandidates()
