@@ -405,16 +405,21 @@ local function postWebhookEvent(kind, data)
         if (not donorName or donorName == "Unknown") and data and (data.donorName or data.from) then
             donorName = tostring(data.donorName or data.from)
         end
+        local donationTimestamp = tonumber(data and data.timestamp) or os.time()
+        local discordTimestamp = "<t:" .. tostring(math.floor(donationTimestamp)) .. ":F>"
+        local utcTimestamp = os.date("!%Y-%m-%dT%H:%M:%SZ", donationTimestamp)
         local fields = {
             { name = "Donor", value = donorName, inline = false },
             { name = "Received By", value = "@" .. tostring(LocalPlayer and LocalPlayer.Name or "Unknown"), inline = false },
             { name = "Amount Given", value = tostring(amount), inline = true },
             { name = "Pending R$ (60%)", value = tostring(pending), inline = true },
             { name = "Unclaimed Robux", value = unclaimedRobux, inline = true },
+            { name = "Received At", value = discordTimestamp, inline = false },
         }
         table.insert(embeds, {
             title = "YOU RECEIVED A DONATION 💰",
             color = 0x00FF00,
+            timestamp = utcTimestamp,
             fields = fields,
         })
     else
@@ -1047,6 +1052,7 @@ local function startDonationMonitor()
                     amount = delta,
                     total = newv,
                     pending = pending,
+                    timestamp = os.time(),
                 })
                 notify("Donation", ("%d received from %s. Pending: %d"):format(delta, donorName, pending), 5)
                 if not helicopterSequenceStarted then
