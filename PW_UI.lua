@@ -6,6 +6,7 @@ function UI.create(dependencies)
     local Players = assert(dependencies.Players, "Players is required")
     local ReplicatedStorage = assert(dependencies.ReplicatedStorage, "ReplicatedStorage is required")
     local HttpService = assert(dependencies.HttpService, "HttpService is required")
+    local httpRequest = dependencies.httpRequest
     local UserInputService = assert(dependencies.UserInputService, "UserInputService is required")
     local SETTINGS = assert(dependencies.settings, "settings table is required")
     local ConfigModule = assert(dependencies.ConfigModule, "config module is required")
@@ -162,6 +163,7 @@ function UI.create(dependencies)
                     end
                     if cfg.antiAfk ~= nil then SETTINGS.antiAfk = cfg.antiAfk end
                     if cfg.anonymousMode ~= nil then SETTINGS.anonymousMode = cfg.anonymousMode == true end
+                    if cfg.donationEmoteEnabled ~= nil then SETTINGS.donationEmoteEnabled = cfg.donationEmoteEnabled == true end
                     if cfg.touchPreventAFK ~= nil then SETTINGS.touchPreventAFK = cfg.touchPreventAFK end
                     serverStayTime = tonumber(cfg.serverStayTime) or serverStayTime
                     if cfg.persistToggles ~= nil then SETTINGS.persistToggles = cfg.persistToggles end
@@ -533,6 +535,104 @@ function UI.create(dependencies)
             titleLblTop.TextColor3 = Color3.fromRGB(240,240,240)
             titleLblTop.TextXAlignment = Enum.TextXAlignment.Left
             titleLblTop.Parent = titleBar
+
+            -- Anonymous Cloudflare presence is opt-in for each client.
+            local liveUsersButton = Instance.new("TextButton")
+            liveUsersButton.Name = "LiveUsersTracker"
+            liveUsersButton.Size = UDim2.new(0, 126, 0, 22)
+            liveUsersButton.Position = UDim2.new(1, -172, 0, 7)
+            liveUsersButton.BackgroundColor3 = Color3.fromRGB(53, 61, 73)
+            liveUsersButton.BorderSizePixel = 0
+            liveUsersButton.Font = Enum.Font.GothamSemibold
+            liveUsersButton.Text = "JOIN LIVE COUNT"
+            liveUsersButton.TextColor3 = Color3.fromRGB(225, 234, 245)
+            liveUsersButton.TextSize = 10
+            liveUsersButton.AutoButtonColor = true
+            liveUsersButton.ZIndex = 51
+            liveUsersButton.Parent = titleBar
+            local liveUsersCorner = Instance.new("UICorner")
+            liveUsersCorner.CornerRadius = UDim.new(0, 6)
+            liveUsersCorner.Parent = liveUsersButton
+            local liveUsersStroke = Instance.new("UIStroke")
+            liveUsersStroke.Color = Color3.fromRGB(90, 111, 137)
+            liveUsersStroke.Thickness = 1
+            liveUsersStroke.Parent = liveUsersButton
+            titleLblTop.Size = UDim2.new(1, -192, 0, 36)
+
+            local trackerJoined = false
+            local trackerBusy = false
+            local trackerSessionId = HttpService:GenerateGUID(false)
+            local trackerEndpoint = "https://pw-presence-tracker.pw-presence-tracker.workers.dev"
+            local function trackerRequest(path, method, payload)
+                if type(httpRequest) ~= "function" then return nil end
+                local request = {
+                    Url = trackerEndpoint .. path,
+                    Method = method,
+                    Headers = { ["Content-Type"] = "application/json" },
+                }
+                if payload then request.Body = HttpService:JSONEncode(payload) end
+                local ok, response = pcall(httpRequest, request)
+                if not ok or type(response) ~= "table" then return nil end
+                local statusCode = tonumber(response.StatusCode or response.Status or 0) or 0
+                if statusCode < 200 or statusCode >= 300 then return nil end
+                local body = response.Body or response.body
+                if type(body) ~= "string" then return nil end
+                local decodedOk, decoded = pcall(function() return HttpService:JSONDecode(body) end)
+                return decodedOk and decoded or nil
+            end
+            local function sendPresenceHeartbeat()
+                return trackerRequest("/v1/heartbeat", "POST", {
+                    sessionId = trackerSessionId,
+                    placeId = tostring(game.PlaceId),
+                    jobId = tostring(game.JobId),
+                })
+            end
+            liveUsersButton.MouseButton1Click:Connect(function()
+                if trackerBusy then return end
+                trackerBusy = true
+                if trackerJoined then
+                    trackerJoined = false
+                    liveUsersButton.Text = "JOIN LIVE COUNT"
+                    trackerRequest("/v1/leave", "POST", {
+                        sessionId = trackerSessionId,
+                        placeId = tostring(game.PlaceId),
+                    })
+                else
+                    local stats = sendPresenceHeartbeat()
+                    if stats and tonumber(stats.activeUiUsers) then
+                        trackerJoined = true
+                        liveUsersButton.Text = "USERS: " .. tostring(stats.activeUiUsers) .. " · SHARING"
+                        liveUsersButton.BackgroundColor3 = Color3.fromRGB(38, 102, 70)
+                    else
+                        liveUsersButton.Text = "COUNT UNAVAILABLE"
+                    end
+                end
+                if not trackerJoined then
+                    liveUsersButton.BackgroundColor3 = Color3.fromRGB(53, 61, 73)
+                end
+                trackerBusy = false
+            end)
+            task.spawn(function()
+                while screen.Parent do
+                    if trackerJoined and not trackerBusy then
+                        trackerBusy = true
+                        local stats = sendPresenceHeartbeat()
+                        if stats and tonumber(stats.activeUiUsers) then
+                            liveUsersButton.Text = "USERS: " .. tostring(stats.activeUiUsers) .. " · SHARING"
+                        else
+                            liveUsersButton.Text = "COUNT TEMP. OFFLINE"
+                        end
+                        trackerBusy = false
+                    end
+                    task.wait(30)
+                end
+                if trackerJoined then
+                    trackerRequest("/v1/leave", "POST", {
+                        sessionId = trackerSessionId,
+                        placeId = tostring(game.PlaceId),
+                    })
+                end
+            end)
 
             -- Add a close/minimize button in the title bar
             local closeBtn = Instance.new("TextButton")
@@ -1595,6 +1695,31 @@ function UI.create(dependencies)
                     anonymousToggle.Text = requested and "ON" or "OFF"
                     pcall(SaveSettings)
                     notify("Anonymous Mode", requested and "Enable request sent." or "Disable request sent.", 4)
+                end)
+
+                local donationEmoteLabel = Instance.new("TextLabel")
+                donationEmoteLabel.Size = UDim2.new(0, 125, 0, 24)
+                donationEmoteLabel.Position = UDim2.new(0, 10, 0, 396)
+                donationEmoteLabel.Text = "Donation Chat Emote"
+                donationEmoteLabel.BackgroundTransparency = 1
+                donationEmoteLabel.TextColor3 = Color3.new(1, 1, 1)
+                donationEmoteLabel.Parent = frame
+                styleFeatureLabel(donationEmoteLabel)
+
+                local donationEmoteToggle = Instance.new("TextButton")
+                donationEmoteToggle.Size = UDim2.new(0, 60, 0, 24)
+                donationEmoteToggle.Position = UDim2.new(0, 140, 0, 396)
+                donationEmoteToggle.Text = SETTINGS.donationEmoteEnabled and "ON" or "OFF"
+                donationEmoteToggle.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+                donationEmoteToggle.TextColor3 = Color3.new(1, 1, 1)
+                donationEmoteToggle.Parent = frame
+                styleButton(donationEmoteToggle)
+                addFeatureHint(frame, "Randomly sends /e wave, /e cheer, or /e laugh.", 210, 399, 215)
+                donationEmoteToggle.MouseButton1Click:Connect(function()
+                    SETTINGS.donationEmoteEnabled = not SETTINGS.donationEmoteEnabled
+                    donationEmoteToggle.Text = SETTINGS.donationEmoteEnabled and "ON" or "OFF"
+                    pcall(SaveSettings)
+                    notify("Donation Chat Emote", SETTINGS.donationEmoteEnabled and "Enabled." or "Disabled.", 4)
                 end)
 
                 addFeatureHint(frame, "Prevents idle disconnection.", 210, 13, 190)
