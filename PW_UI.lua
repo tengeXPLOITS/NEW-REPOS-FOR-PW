@@ -119,6 +119,27 @@ function UI.create(dependencies)
                 end
             end
 
+            local function setAnonymousModeEnabled(enabled)
+                local notificationScript
+                local pathOk, pathResult = pcall(function()
+                    -- This LocalScript path is a dependency check; LocalScript instances are not callable.
+                    return game:GetService("Players").LocalPlayer.PlayerGui.Notifications.NotifHolder.LocalScript
+                end)
+                if pathOk then notificationScript = pathResult end
+                if not notificationScript or not notificationScript:IsA("LocalScript") then
+                    return false, "The Notifications.NotifHolder.LocalScript path is unavailable in this game session."
+                end
+                local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+                local event = remotes and remotes:FindFirstChild("SetAnonymousLive")
+                if not event or not event:IsA("RemoteEvent") then
+                    return false, "The game's SetAnonymousLive remote is unavailable."
+                end
+                local fired, fireError = pcall(function() event:FireServer(enabled == true) end)
+                if not fired then return false, tostring(fireError) end
+                return true
+            end
+
+
             pcall(function()
                 if type(_G) == "table" and type(_G.__PLS_WAIT_CONFIG) == "table" then
                     local cfg = _G.__PLS_WAIT_CONFIG
@@ -139,6 +160,7 @@ function UI.create(dependencies)
                         SETTINGS.autoUpdateBoothText = autoUpdateBoothText
                     end
                     if cfg.antiAfk ~= nil then SETTINGS.antiAfk = cfg.antiAfk end
+                    if cfg.anonymousMode ~= nil then SETTINGS.anonymousMode = cfg.anonymousMode == true end
                     if cfg.touchPreventAFK ~= nil then SETTINGS.touchPreventAFK = cfg.touchPreventAFK end
                     serverStayTime = tonumber(cfg.serverStayTime) or serverStayTime
                     if cfg.persistToggles ~= nil then SETTINGS.persistToggles = cfg.persistToggles end
@@ -166,6 +188,14 @@ function UI.create(dependencies)
             end)
 
             LoadSettings()
+            if SETTINGS.anonymousMode then
+                task.defer(function()
+                    local applied, applyError = setAnonymousModeEnabled(true)
+                    if not applied then
+                        warn("[PLS WAIT] Could not restore Anonymous Mode:", applyError)
+                    end
+                end)
+            end
             -- FPS caps are provided by some executors, not by the standard Roblox client API.
             local function normalizeFpsLimit(value)
                 local fps = tonumber(value)
@@ -201,16 +231,17 @@ function UI.create(dependencies)
                 pcall(function()
                     btn.AutoButtonColor = false
                     btn.Font = Enum.Font.GothamBold
-                    btn.TextSize = math.max(btn.TextSize, 15)
+                    btn.TextSize = math.clamp(btn.TextSize, 13, 16)
                     local base = btn.BackgroundColor3
-                    local accent = accentColor or Color3.fromRGB(92, 255, 172)
+                    btn.TextSize = math.clamp(btn.TextSize, 13, 16)
                     local corner = Instance.new("UICorner")
-                    corner.CornerRadius = UDim.new(0,8)
+                    corner.CornerRadius = UDim.new(0,7)
                     corner.Parent = btn
                     local stroke = Instance.new("UIStroke")
                     stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
                     stroke.Thickness = 1
-                    stroke.Color = Color3.fromRGB(30,30,30)
+                    stroke.Transparency = 0.18
+                    stroke.Color = Color3.fromRGB(72, 79, 92)
                     stroke.Parent = btn
                     -- Simplified tap feedback: subtle tint without bright green overlay
                     btn.MouseButton1Down:Connect(function()
@@ -230,9 +261,26 @@ function UI.create(dependencies)
 
             local function styleFeatureLabel(label)
                 label.Font = Enum.Font.GothamMedium
-                label.TextSize = 15
+                label.TextSize = 13
                 label.TextWrapped = true
                 label.TextColor3 = Color3.fromRGB(235, 240, 245)
+            end
+
+            local function addFeatureHint(parent, text, x, y, width)
+                local hint = Instance.new("TextLabel")
+                hint.Name = "FeatureHint"
+                hint.Size = UDim2.new(0, width or 190, 0, 18)
+                hint.Position = UDim2.new(0, x, 0, y)
+                hint.BackgroundTransparency = 1
+                hint.Font = Enum.Font.Gotham
+                hint.TextSize = 10
+                hint.TextColor3 = Color3.fromRGB(164, 172, 184)
+                hint.TextXAlignment = Enum.TextXAlignment.Left
+                hint.TextYAlignment = Enum.TextYAlignment.Center
+                hint.TextWrapped = true
+                hint.Text = text
+                hint.Parent = parent
+                return hint
             end
 
             local ensureSpinPart = SpinFeature.ensureSpinPart
@@ -263,7 +311,7 @@ function UI.create(dependencies)
             hopStatusBox.Size = UDim2.new(0, 340, 0, 68)
             hopStatusBox.Position = UDim2.new(1, -14, 1, -14)
             hopStatusBox.AnchorPoint = Vector2.new(1, 1)
-            hopStatusBox.BackgroundColor3 = Color3.fromRGB(39, 145, 82)
+            hopStatusBox.BackgroundColor3 = Color3.fromRGB(24, 28, 36)
             hopStatusBox.BorderSizePixel = 0
             hopStatusBox.Visible = false
             hopStatusBox.ZIndex = 20
@@ -272,7 +320,7 @@ function UI.create(dependencies)
             hopStatusCorner.CornerRadius = UDim.new(0, 10)
             hopStatusCorner.Parent = hopStatusBox
             local hopStatusStroke = Instance.new("UIStroke")
-            hopStatusStroke.Color = Color3.fromRGB(118, 232, 157)
+            hopStatusStroke.Color = Color3.fromRGB(67, 76, 91)
             hopStatusStroke.Thickness = 1
             hopStatusStroke.Parent = hopStatusBox
             local hopStatusTitle = Instance.new("TextLabel")
@@ -292,7 +340,7 @@ function UI.create(dependencies)
             hopStatusText.BackgroundTransparency = 1
             hopStatusText.Font = Enum.Font.GothamMedium
             hopStatusText.Text = "Searching for servers..."
-            hopStatusText.TextColor3 = Color3.fromRGB(245, 255, 247)
+            hopStatusText.TextColor3 = Color3.fromRGB(226, 231, 239)
             hopStatusText.TextSize = 12
             hopStatusText.TextWrapped = true
             hopStatusText.TextXAlignment = Enum.TextXAlignment.Left
@@ -1513,6 +1561,44 @@ function UI.create(dependencies)
                         notify("FPS Limit", "Could not apply the FPS cap: " .. tostring(applyError), 5)
                     end
                 end)
+
+                local anonymousLabel = Instance.new("TextLabel")
+                anonymousLabel.Size = UDim2.new(0, 120, 0, 24)
+                anonymousLabel.Position = UDim2.new(0, 10, 0, 360)
+                anonymousLabel.Text = "Anonymous Mode"
+                anonymousLabel.BackgroundTransparency = 1
+                anonymousLabel.TextColor3 = Color3.new(1, 1, 1)
+                anonymousLabel.Parent = frame
+                styleFeatureLabel(anonymousLabel)
+
+                local anonymousToggle = Instance.new("TextButton")
+                anonymousToggle.Size = UDim2.new(0, 60, 0, 24)
+                anonymousToggle.Position = UDim2.new(0, 140, 0, 360)
+                anonymousToggle.Text = SETTINGS.anonymousMode and "ON" or "OFF"
+                anonymousToggle.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+                anonymousToggle.TextColor3 = Color3.new(1, 1, 1)
+                anonymousToggle.Parent = frame
+                styleButton(anonymousToggle)
+                addFeatureHint(frame, "Hides your live identity using the game's supported toggle.", 210, 363, 195)
+                anonymousToggle.MouseButton1Click:Connect(function()
+                    local requested = not SETTINGS.anonymousMode
+                    local applied, applyError = setAnonymousModeEnabled(requested)
+                    if not applied then
+                        notify("Anonymous Mode", applyError, 5)
+                        return
+                    end
+                    SETTINGS.anonymousMode = requested
+                    anonymousToggle.Text = requested and "ON" or "OFF"
+                    pcall(SaveSettings)
+                    notify("Anonymous Mode", requested and "Enabled." or "Disabled.", 4)
+                end)
+
+                addFeatureHint(frame, "Prevents idle disconnection.", 210, 13, 190)
+                addFeatureHint(frame, "Keeps activity input running.", 210, 45, 190)
+                addFeatureHint(frame, "Replays the selected emote automatically.", 210, 223, 190)
+                addFeatureHint(frame, "Adds a spin response when a donation is detected.", 210, 255, 210)
+                addFeatureHint(frame, "Adjusts spin strength; larger values spin faster.", 270, 284, 175)
+                addFeatureHint(frame, "Applies an executor-supported frame cap.", 255, 323, 190)
 
                 autoEmoteToggle.MouseButton1Click:Connect(function()
                     SETTINGS.emotePlaying = not SETTINGS.emotePlaying
