@@ -120,23 +120,55 @@ function UI.create(dependencies)
             end
 
             local function setAnonymousModeEnabled(enabled)
-                local notificationScript
-                local pathOk, pathResult = pcall(function()
-                    -- This LocalScript path is a dependency check; LocalScript instances are not callable.
+                -- Keep the requested UI path available for game-version checks. It is a LocalScript instance, not a callable function.
+                local pathOk, notificationScript = pcall(function()
                     return game:GetService("Players").LocalPlayer.PlayerGui.Notifications.NotifHolder.LocalScript
                 end)
-                if pathOk then notificationScript = pathResult end
-                if not notificationScript or not notificationScript:IsA("LocalScript") then
-                    return false, "The Notifications.NotifHolder.LocalScript path is unavailable in this game session."
+                if not pathOk or not notificationScript or not notificationScript:IsA("LocalScript") then
+                    warn("[PLS WAIT] Notifications.NotifHolder.LocalScript was not found; continuing through the game remote.")
                 end
-                local remotes = ReplicatedStorage:FindFirstChild("Remotes")
-                local event = remotes and remotes:FindFirstChild("SetAnonymousLive")
-                if not event or not event:IsA("RemoteEvent") then
+
+                local event
+                local directRemotes = ReplicatedStorage:FindFirstChild("Remotes")
+                if directRemotes then
+                    if directRemotes:IsA("ModuleScript") then
+                        local moduleOk, api = pcall(require, directRemotes)
+                        if moduleOk and type(api) == "table" and type(api.Event) == "function" then
+                            local eventOk, result = pcall(api.Event, "SetAnonymousLive")
+                            if eventOk then event = result end
+                        end
+                    else
+                        event = directRemotes:FindFirstChild("SetAnonymousLive")
+                    end
+                end
+                if not event then
+                    -- Match the Remote ModuleScript/Event accessor used by the existing game UI.
+                    for _, child in ipairs(ReplicatedStorage:GetChildren()) do
+                        if child:IsA("ModuleScript") and child.Name:lower():find("remote", 1, true) then
+                            local moduleOk, api = pcall(require, child)
+                            if moduleOk and type(api) == "table" and type(api.Event) == "function" then
+                                local eventOk, result = pcall(api.Event, "SetAnonymousLive")
+                                if eventOk and result then event = result; break end
+                            end
+                        end
+                    end
+                end
+                if typeof(event) ~= "Instance" or not event:IsA("RemoteEvent") then
                     return false, "The game's SetAnonymousLive remote is unavailable."
                 end
                 local fired, fireError = pcall(function() event:FireServer(enabled == true) end)
                 if not fired then return false, tostring(fireError) end
-                return true
+
+                -- The Notification RemoteEvent is server-to-client; firesignal only displays a local toast.
+                local notificationEvent = ReplicatedStorage:FindFirstChild("Notification")
+                local signalFirer
+                pcall(function() signalFirer = firesignal end)
+                local toastShown = false
+                if type(signalFirer) == "function" and notificationEvent and notificationEvent:IsA("RemoteEvent") then
+                    local message = enabled and "You have enabled Anonymous Mode." or "You have disabled Anonymous Mode."
+                    toastShown = pcall(signalFirer, notificationEvent.OnClientEvent, "Success", message)
+                end
+                return true, toastShown
             end
 
 
@@ -1582,15 +1614,17 @@ function UI.create(dependencies)
                 addFeatureHint(frame, "Hides your live identity using the game's supported toggle.", 210, 363, 195)
                 anonymousToggle.MouseButton1Click:Connect(function()
                     local requested = not SETTINGS.anonymousMode
-                    local applied, applyError = setAnonymousModeEnabled(requested)
+                    local applied, toastShown = setAnonymousModeEnabled(requested)
                     if not applied then
-                        notify("Anonymous Mode", applyError, 5)
+                        notify("Anonymous Mode", toastShown, 5)
                         return
                     end
                     SETTINGS.anonymousMode = requested
                     anonymousToggle.Text = requested and "ON" or "OFF"
                     pcall(SaveSettings)
-                    notify("Anonymous Mode", requested and "Enabled." or "Disabled.", 4)
+                    if not toastShown then
+                        notify("Anonymous Mode", requested and "Request sent: enable Anonymous Mode." or "Request sent: disable Anonymous Mode.", 4)
+                    end
                 end)
 
                 addFeatureHint(frame, "Prevents idle disconnection.", 210, 13, 190)
