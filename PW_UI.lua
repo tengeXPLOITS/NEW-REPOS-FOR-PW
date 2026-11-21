@@ -24,6 +24,7 @@ function UI.create(dependencies)
     local sendPlainWebhook = assert(dependencies.sendPlainWebhook, "plain webhook function is required")
     local serverHopNow = assert(dependencies.serverHopNow, "server-hop function is required")
     local serverSearchAttempt = assert(dependencies.serverSearchAttempt, "server-search function is required")
+    local resetServerHopAttemptCount = dependencies.resetServerHopAttemptCount
     local simulateTouchTapPulse = assert(dependencies.simulateTouchTapPulse, "touch pulse function is required")
     local startDonationMonitor = assert(dependencies.startDonationMonitor, "donation monitor starter is required")
     local stopDonationMonitor = assert(dependencies.stopDonationMonitor, "donation monitor stop function is required")
@@ -182,6 +183,9 @@ function UI.create(dependencies)
                     if cfg.chatAutoThankYou ~= nil then SETTINGS.chatAutoThankYou = cfg.chatAutoThankYou end
                     if cfg.thankYouMessages ~= nil and type(cfg.thankYouMessages) == "table" then SETTINGS.thankYouMessages = cfg.thankYouMessages end
                     if cfg.autoServerHop ~= nil then autoServerHopEnabled = cfg.autoServerHop end
+                    if type(cfg.pendingServerHopWebhook) == "table" then
+                        SETTINGS.pendingServerHopWebhook = cfg.pendingServerHopWebhook
+                    end
                     -- legacy spin settings ignored from queued config
                     _G.__PLS_WAIT_CONFIG = nil
                 end
@@ -1939,6 +1943,9 @@ function UI.create(dependencies)
                         if not isFriend or not SETTINGS.friendHop or friendHopBusy then return end
 
                         friendHopBusy = true
+                        if type(resetServerHopAttemptCount) == "function" then
+                            pcall(resetServerHopAttemptCount)
+                        end
                         task.spawn(function()
                             local minPlayers, maxPlayers = parseRange(hopRangeText)
                             while SETTINGS.friendHop do
@@ -2608,56 +2615,19 @@ function UI.create(dependencies)
             if SETTINGS.webhookToggle or SETTINGS.spinSet or SETTINGS.helicopterEnabled or SETTINGS.robuxLap then
                 startDonationMonitor()
             end
-            if SETTINGS.webhookToggle then
-                pcall(function()
-                    pcall(function() sendPlainWebhook(("@%s serverhopped"):format(tostring(LocalPlayer and LocalPlayer.Name or "Unknown"))) end)
+            local pendingServerHopWebhook = SETTINGS.pendingServerHopWebhook
+            SETTINGS.pendingServerHopWebhook = nil
+            if type(pendingServerHopWebhook) == "table"
+                and pendingServerHopWebhook.serverId ~= nil
+                and tostring(pendingServerHopWebhook.serverId) == tostring(game.JobId) then
+                local landedPlayers = tonumber(pendingServerHopWebhook.players) or 0
+                SETTINGS.serverHopStatus = ("Success — joined a %d-player server"):format(landedPlayers)
+                SETTINGS.serverHopActive = true
+                postWebhookEvent("serverhop", pendingServerHopWebhook)
+                task.delay(8, function()
+                    SETTINGS.serverHopActive = false
                 end)
             end
-            -- If user requested persistence across hops, ensure queue_on_teleport is set now
-            pcall(function()
-                if SETTINGS.persistToggles then
-                    local ok2, cfgJson = pcall(function()
-                        return Http:JSONEncode({
-                            webhookToggle = SETTINGS.webhookToggle,
-                            webhookUrl = SETTINGS.webhookUrl,
-                            gamepassId = SETTINGS.gamepassId,
-                            donatePassId = SETTINGS.donatePassId,
-                            donateAmount = SETTINGS.donateAmount,
-                            donateTargetUsername = SETTINGS.donateTargetUsername,
-                            autoDonateEnabled = SETTINGS.autoDonateEnabled,
-                            claimPrice = SETTINGS.claimPrice,
-                            autoClaimPendingRobux = SETTINGS.autoClaimPendingRobux,
-                            autoClaimThreshold = SETTINGS.autoClaimThreshold,
-                            autoUpdateBoothText = autoUpdateBoothText,
-                            boothText = SETTINGS.boothText,
-                            antiAfk = SETTINGS.antiAfk,
-                            friendHop = SETTINGS.friendHop,
-                            serverStayTime = SETTINGS.serverStayTime,
-                            boothPositionPreference = SETTINGS.boothPositionPreference,
-                fpsLimit = SETTINGS.fpsLimit,
-                            persistToggles = SETTINGS.persistToggles,
-                            spinOnDonation = SETTINGS.spinSet,
-                            spinSet = SETTINGS.spinSet,
-                            spinSpeedMultiplier = SETTINGS.spinSpeedMultiplier,
-                            helicopterEnabled = SETTINGS.helicopterEnabled,
-                            robuxLap = SETTINGS.robuxLap,
-                            populationHopper = SETTINGS.populationHopper,
-                            populationThreshold = SETTINGS.populationThreshold,
-                            goalBarEnabled = SETTINGS.goalBarEnabled,
-                            goalBarTarget = SETTINGS.goalBarTarget,
-                            emoteId = SETTINGS.emoteId,
-                            emotePlaying = SETTINGS.emotePlaying and true or false,
-                            autoServerHop = autoServerHopEnabled,
-                        })
-                    end)
-                    local qcore = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/tengeXPLOITS/NEW-REPOS-FOR-PW/main/PW.lua"))()'
-                    local qcode = qcore
-                    if ok2 and cfgJson then
-                        qcode = ("(function() local _json = %q; local ok,cfg = pcall(function() return game:GetService('HttpService'):JSONDecode(_json) end); if ok and type(cfg)=='table' then _G.__PLS_WAIT_CONFIG = cfg end; local f,err = loadstring(game:HttpGet('https://raw.githubusercontent.com/tengeXPLOITS/NEW-REPOS-FOR-PW/main/PW.lua')); if f then pcall(f) else warn(err) end end)()"):format(cfgJson)
-                    end
-                    pcall(function() ensureQueuedScript(qcode) end)
-                end
-            end)
             local function claimBoothAndRefreshText()
                 pcall(function() claimBooth() end)
                 if autoUpdateBoothText then
