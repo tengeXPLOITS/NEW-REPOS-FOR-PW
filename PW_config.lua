@@ -26,6 +26,7 @@ function Config.initializeSettings(settings, touchEnabled, defaultBoothText)
     settings.touchPreventAFK = settings.touchPreventAFK or (touchEnabled and true or false)
     settings.staffHop = settings.staffHop or false
     settings.friendHop = settings.friendHop or false
+    settings.userHop = settings.userHop == true
     if settings.spinSet == nil then settings.spinSet = settings.spinOnDonation end
     if settings.spinSet == nil then settings.spinSet = true end
     settings.spinOnDonation = settings.spinSet
@@ -35,6 +36,7 @@ function Config.initializeSettings(settings, touchEnabled, defaultBoothText)
     settings.goalBarEnabled = settings.goalBarEnabled or false
     settings.goalBarTarget = tonumber(settings.goalBarTarget) or 40000
     settings.chatAutoThankYou = settings.chatAutoThankYou or false
+    if settings.donationEmoteEnabled == nil then settings.donationEmoteEnabled = true end
     settings.thankYouMessages = settings.thankYouMessages or {"thanks!", "thank you", "ty (:"}
     settings.emotePlaying = settings.emotePlaying or false
     settings.boothText = settings.boothText or defaultBoothText
@@ -85,10 +87,12 @@ function Config.create(dependencies)
             boothText = settings.boothText,
             staffHop = settings.staffHop,
             friendHop = settings.friendHop,
+            userHop = settings.userHop == true,
             goalBarEnabled = settings.goalBarEnabled,
             goalBarTarget = settings.goalBarTarget,
             emotePlaying = settings.emotePlaying and true or false,
             chatAutoThankYou = settings.chatAutoThankYou,
+            donationEmoteEnabled = settings.donationEmoteEnabled == true,
             thankYouMessages = settings.thankYouMessages,
         }
         for key, value in pairs(getRuntimeState()) do
@@ -187,10 +191,12 @@ function Config.create(dependencies)
         end
         if decoded.staffHop ~= nil then settings.staffHop = decoded.staffHop end
         if decoded.friendHop ~= nil then settings.friendHop = decoded.friendHop end
+        if decoded.userHop ~= nil then settings.userHop = decoded.userHop == true end
         if decoded.goalBarEnabled ~= nil then settings.goalBarEnabled = decoded.goalBarEnabled end
         if decoded.goalBarTarget ~= nil then settings.goalBarTarget = tonumber(decoded.goalBarTarget) or settings.goalBarTarget end
         if decoded.emotePlaying ~= nil then settings.emotePlaying = decoded.emotePlaying end
         if decoded.chatAutoThankYou ~= nil then settings.chatAutoThankYou = decoded.chatAutoThankYou end
+        if decoded.donationEmoteEnabled ~= nil then settings.donationEmoteEnabled = decoded.donationEmoteEnabled == true end
         if type(decoded.thankYouMessages) == "table" then
             settings.thankYouMessages = decoded.thankYouMessages
         end
