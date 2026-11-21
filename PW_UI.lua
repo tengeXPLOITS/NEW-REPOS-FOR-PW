@@ -536,30 +536,27 @@ function UI.create(dependencies)
             titleLblTop.TextXAlignment = Enum.TextXAlignment.Left
             titleLblTop.Parent = titleBar
 
-            -- Anonymous Cloudflare presence is opt-in for each client.
-            local liveUsersButton = Instance.new("TextButton")
-            liveUsersButton.Name = "LiveUsersTracker"
-            liveUsersButton.Size = UDim2.new(0, 126, 0, 22)
-            liveUsersButton.Position = UDim2.new(1, -172, 0, 7)
-            liveUsersButton.BackgroundColor3 = Color3.fromRGB(53, 61, 73)
-            liveUsersButton.BorderSizePixel = 0
-            liveUsersButton.Font = Enum.Font.GothamSemibold
-            liveUsersButton.Text = "JOIN LIVE COUNT"
-            liveUsersButton.TextColor3 = Color3.fromRGB(225, 234, 245)
-            liveUsersButton.TextSize = 10
-            liveUsersButton.AutoButtonColor = true
-            liveUsersButton.ZIndex = 51
-            liveUsersButton.Parent = titleBar
+            local liveUsersLabel = Instance.new("TextLabel")
+            liveUsersLabel.Name = "LiveUsersTracker"
+            liveUsersLabel.Size = UDim2.new(0, 126, 0, 22)
+            liveUsersLabel.Position = UDim2.new(1, -172, 0, 7)
+            liveUsersLabel.BackgroundColor3 = Color3.fromRGB(53, 61, 73)
+            liveUsersLabel.BorderSizePixel = 0
+            liveUsersLabel.Font = Enum.Font.GothamSemibold
+            liveUsersLabel.Text = "USERS: …"
+            liveUsersLabel.TextColor3 = Color3.fromRGB(225, 234, 245)
+            liveUsersLabel.TextSize = 10
+            liveUsersLabel.ZIndex = 51
+            liveUsersLabel.Parent = titleBar
             local liveUsersCorner = Instance.new("UICorner")
             liveUsersCorner.CornerRadius = UDim.new(0, 6)
-            liveUsersCorner.Parent = liveUsersButton
+            liveUsersCorner.Parent = liveUsersLabel
             local liveUsersStroke = Instance.new("UIStroke")
             liveUsersStroke.Color = Color3.fromRGB(90, 111, 137)
             liveUsersStroke.Thickness = 1
-            liveUsersStroke.Parent = liveUsersButton
+            liveUsersStroke.Parent = liveUsersLabel
             titleLblTop.Size = UDim2.new(1, -192, 0, 36)
 
-            local trackerJoined = false
             local trackerBusy = false
             local trackerSessionId = HttpService:GenerateGUID(false)
             local trackerEndpoint = "https://pw-presence-tracker.pw-presence-tracker.workers.dev"
@@ -573,9 +570,14 @@ function UI.create(dependencies)
                 if payload then request.Body = HttpService:JSONEncode(payload) end
                 local ok, response = pcall(httpRequest, request)
                 if not ok or type(response) ~= "table" then return nil end
-                local statusCode = tonumber(response.StatusCode or response.Status or 0) or 0
-                if statusCode < 200 or statusCode >= 300 then return nil end
-                local body = response.Body or response.body
+                if response.Success == false or response.success == false then return nil end
+                local statusValue = response.StatusCode or response.statusCode or response.Status or response.status
+                local statusCode = tonumber(statusValue)
+                if not statusCode and type(statusValue) == "string" then
+                    statusCode = tonumber(statusValue:match("(%d%d%d)"))
+                end
+                if statusCode and (statusCode < 200 or statusCode >= 300) then return nil end
+                local body = response.Body or response.body or response.ResponseBody or response.responseBody
                 if type(body) ~= "string" then return nil end
                 local decodedOk, decoded = pcall(function() return HttpService:JSONDecode(body) end)
                 return decodedOk and decoded or nil
@@ -587,51 +589,28 @@ function UI.create(dependencies)
                     jobId = tostring(game.JobId),
                 })
             end
-            liveUsersButton.MouseButton1Click:Connect(function()
-                if trackerBusy then return end
-                trackerBusy = true
-                if trackerJoined then
-                    trackerJoined = false
-                    liveUsersButton.Text = "JOIN LIVE COUNT"
-                    trackerRequest("/v1/leave", "POST", {
-                        sessionId = trackerSessionId,
-                        placeId = tostring(game.PlaceId),
-                    })
-                else
-                    local stats = sendPresenceHeartbeat()
-                    if stats and tonumber(stats.activeUiUsers) then
-                        trackerJoined = true
-                        liveUsersButton.Text = "USERS: " .. tostring(stats.activeUiUsers) .. " · SHARING"
-                        liveUsersButton.BackgroundColor3 = Color3.fromRGB(38, 102, 70)
-                    else
-                        liveUsersButton.Text = "COUNT UNAVAILABLE"
-                    end
-                end
-                if not trackerJoined then
-                    liveUsersButton.BackgroundColor3 = Color3.fromRGB(53, 61, 73)
-                end
-                trackerBusy = false
-            end)
             task.spawn(function()
                 while screen.Parent do
-                    if trackerJoined and not trackerBusy then
+                    if not trackerBusy then
                         trackerBusy = true
                         local stats = sendPresenceHeartbeat()
                         if stats and tonumber(stats.activeUiUsers) then
-                            liveUsersButton.Text = "USERS: " .. tostring(stats.activeUiUsers) .. " · SHARING"
+                            liveUsersLabel.Text = "USERS: " .. tostring(stats.activeUiUsers)
+                            liveUsersLabel.TextColor3 = Color3.fromRGB(225, 245, 232)
+                            liveUsersLabel.BackgroundColor3 = Color3.fromRGB(38, 82, 59)
                         else
-                            liveUsersButton.Text = "COUNT TEMP. OFFLINE"
+                            liveUsersLabel.Text = "USERS: —"
+                            liveUsersLabel.TextColor3 = Color3.fromRGB(225, 234, 245)
+                            liveUsersLabel.BackgroundColor3 = Color3.fromRGB(53, 61, 73)
                         end
                         trackerBusy = false
                     end
                     task.wait(30)
                 end
-                if trackerJoined then
-                    trackerRequest("/v1/leave", "POST", {
-                        sessionId = trackerSessionId,
-                        placeId = tostring(game.PlaceId),
-                    })
-                end
+                trackerRequest("/v1/leave", "POST", {
+                    sessionId = trackerSessionId,
+                    placeId = tostring(game.PlaceId),
+                })
             end)
 
             -- Add a close/minimize button in the title bar
