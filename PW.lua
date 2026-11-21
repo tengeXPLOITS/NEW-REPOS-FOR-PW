@@ -793,39 +793,114 @@ end
 
 -- Single search attempt: returns true if teleport was initiated
 local serverPageCursor = nil
-local function serverSearchAttempt(minPlayers, maxPlayers, fast)
-    minPlayers = math.clamp(math.floor(tonumber(minPlayers) or 19), 1, 24)
-    maxPlayers = math.clamp(math.floor(tonumber(maxPlayers) or 22), minPlayers, 24)
+local gameServerCache = {}
+local gameServerVersion = 0
+
+local function countCachedGameServers()
+    local count = 0
+    for _ in pairs(gameServerCache) do count += 1 end
+    return count
+end
+
+local function getGameServerCandidates()
+    local eventOk, event = pcall(function()
+        return game:GetService("ReplicatedStorage").ServerList.Get
+    end)
+    if not eventOk or typeof(event) ~= "Instance" or not event:IsA("RemoteFunction") then return nil end
+
+    local invokeOk, payload = pcall(function()
+        local packed = table.pack(event:InvokeServer({
+            servers = gameServerVersion,
+            active = countCachedGameServers(),
+        }))
+        return packed[1]
+    end)
+    if not invokeOk or type(payload) ~= "table" or type(payload.servers) ~= "table" then return nil end
+
+    local delta = payload.servers
+    for _, removedId in ipairs(type(delta.removed) == "table" and delta.removed or {}) do
+        gameServerCache[tostring(removedId)] = nil
+    end
+    for _, record in ipairs(type(delta.added) == "table" and delta.added or {}) do
+        if type(record) == "table" and record[1] ~= nil then
+            gameServerCache[tostring(record[1])] = record
+        end
+    end
+    gameServerVersion = tonumber(delta.version) or gameServerVersion
+
+    local candidates = {}
+    for id, record in pairs(gameServerCache) do
+        local placeId = tonumber(record[2])
+        local access = tostring(record[3] or "public"):lower()
+        local capacity = math.min(24, tonumber(record[5]) or 24)
+        local playerIds = type(record[7]) == "table" and record[7] or nil
+        local playing = tonumber(record[8]) or (playerIds and #playerIds) or 0
+        if access == "public" and (not placeId or placeId == PLACE_ID) then
+            table.insert(candidates, {
+                id = id,
+                playing = playing,
+                maxPlayers = capacity,
+                region = tostring(record[4] or ""),
+            })
+        end
+    end
+    if #candidates == 0 then return nil end
+    return candidates
+end
+
+local function getPublicServerCandidates()
     local url = ("https://games.roblox.com/v1/games/%s/servers/Public?sortOrder=Desc&limit=100&excludeFullGames=true"):format(tostring(PLACE_ID))
     if serverPageCursor then
         url ..= "&cursor=" .. HttpService:UrlEncode(serverPageCursor)
     end
-    local requestOk, res = pcall(function()
+    local requestOk, response = pcall(function()
         if httprequest then
             return httprequest({ Url = url, Method = "GET", Headers = { ["User-Agent"] = "Roblox" } })
         end
         return { Body = HttpService:GetAsync(url) }
     end)
-    if not requestOk or not res then return false end
-    local body = res.Body or res.body or res.responseBody or res.text
-    if type(body) ~= "string" or body == "" then return false end
-    local ok, decoded = pcall(function() return HttpService:JSONDecode(body) end)
-    if not (ok and decoded and type(decoded.data) == "table") then return false end
+    if not requestOk or not response then return nil end
+    local body = response.Body or response.body or response.responseBody or response.text
+    if type(body) ~= "string" or body == "" then return nil end
+    local decodeOk, decoded = pcall(function() return HttpService:JSONDecode(body) end)
+    if not decodeOk or type(decoded) ~= "table" or type(decoded.data) ~= "table" then return nil end
     local nextCursor = decoded.nextPageCursor
     serverPageCursor = type(nextCursor) == "string" and nextCursor ~= "" and nextCursor or nil
-    -- Randomize the single response page so hops distribute across matching servers quickly.
-    for index = #decoded.data, 2, -1 do
-        local swapIndex = math.random(index)
-        decoded.data[index], decoded.data[swapIndex] = decoded.data[swapIndex], decoded.data[index]
-    end
+
+    local candidates = {}
     for _, server in ipairs(decoded.data) do
+        table.insert(candidates, {
+            id = server.id,
+            playing = tonumber(server.playing) or 0,
+            maxPlayers = math.min(24, tonumber(server.maxPlayers) or 24),
+        })
+    end
+    return candidates
+end
+
+-- Single search attempt: prefer the game's live server list and join the fullest eligible server.
+local function serverSearchAttempt(minPlayers, maxPlayers, fast)
+    minPlayers = math.clamp(math.floor(tonumber(minPlayers) or 19), 1, 24)
+    maxPlayers = math.clamp(math.floor(tonumber(maxPlayers) or 22), minPlayers, 24)
+
+    local candidates = getGameServerCandidates()
+    if not candidates then
+        candidates = getPublicServerCandidates()
+    end
+    if type(candidates) ~= "table" or #candidates == 0 then return false end
+    table.sort(candidates, function(a, b)
+        if a.playing == b.playing then return tostring(a.id) < tostring(b.id) end
+        return a.playing > b.playing
+    end)
+
+    for _, server in ipairs(candidates) do
         local playing = tonumber(server.playing) or 0
         local capacity = math.min(24, tonumber(server.maxPlayers) or 24)
         local populationAfterJoin = playing + 1
         if server.id and tostring(server.id) ~= tostring(game.JobId)
             and playing < capacity and populationAfterJoin <= capacity
             and playing >= minPlayers and playing <= maxPlayers then
-            -- queue this script to re-run on the destination and pass current settings via _G
+            -- Queue this script to re-run on the destination and pass current settings via _G.
             local ok2, cfgJson = pcall(function()
                 return HttpService:JSONEncode({
                     webhookToggle = SETTINGS.webhookToggle,
@@ -837,6 +912,7 @@ local function serverSearchAttempt(minPlayers, maxPlayers, fast)
                     autoUpdateBoothText = SETTINGS.autoUpdateBoothText,
                     boothText = SETTINGS.boothText,
                     antiAfk = SETTINGS.antiAfk,
+                    anonymousMode = SETTINGS.anonymousMode == true,
                     friendHop = SETTINGS.friendHop,
                     serverStayTime = SETTINGS.serverStayTime,
                     boothPositionPreference = SETTINGS.boothPositionPreference,
@@ -847,11 +923,11 @@ local function serverSearchAttempt(minPlayers, maxPlayers, fast)
                     spinSpeedMultiplier = SETTINGS.spinSpeedMultiplier,
                     helicopterEnabled = SETTINGS.helicopterEnabled,
                     robuxLap = SETTINGS.robuxLap,
-                        populationHopper = SETTINGS.populationHopper,
-                        populationThreshold = SETTINGS.populationThreshold,
-                        goalBarEnabled = SETTINGS.goalBarEnabled,
-                        goalBarTarget = SETTINGS.goalBarTarget,
-                        emoteId = SETTINGS.emoteId,
+                    populationHopper = SETTINGS.populationHopper,
+                    populationThreshold = SETTINGS.populationThreshold,
+                    goalBarEnabled = SETTINGS.goalBarEnabled,
+                    goalBarTarget = SETTINGS.goalBarTarget,
+                    emoteId = SETTINGS.emoteId,
                     emotePlaying = SETTINGS.emotePlaying and true or false,
                     autoServerHop = SETTINGS.autoServerHop,
                 })
@@ -862,22 +938,21 @@ local function serverSearchAttempt(minPlayers, maxPlayers, fast)
                 qcode = ("(function() local _json = %q; local ok,cfg = pcall(function() return game:GetService('HttpService'):JSONDecode(_json) end); if ok and type(cfg)=='table' then _G.__PLS_WAIT_CONFIG = cfg end; local f,err = loadstring(game:HttpGet('https://raw.githubusercontent.com/tengeXPLOITS/NEW-REPOS-FOR-PW/main/PW.lua')); if f then pcall(f) else warn(err) end end)()"):format(cfgJson)
             end
             pcall(function() ensureQueuedScript(qcode) end)
-            local ts = game:GetService("TeleportService")
-            local okt, terr = pcall(function()
-                ts:TeleportToPlaceInstance(PLACE_ID, server.id, LocalPlayer)
+            local teleportService = game:GetService("TeleportService")
+            local teleportOk, teleportError = pcall(function()
+                teleportService:TeleportToPlaceInstance(PLACE_ID, server.id, LocalPlayer)
             end)
-            if okt then
+            if teleportOk then
                 SETTINGS.serverHopStatus = ("Found a %d-player server; joining..."):format(playing)
                 return true
             else
-                local terrs = tostring(terr or "")
-                pcall(function() notify("Server Hop", ("Teleport failed; retrying: %s"):format(terrs), 4) end)
+                local errorText = tostring(teleportError or "")
+                pcall(function() notify("Server Hop", ("Teleport failed; retrying: %s"):format(errorText), 4) end)
             end
         end
     end
     return false
 end
-
 local activeHopTask = nil
 local activeHopStartedAt = nil
 local activeHopTimedOut = false
