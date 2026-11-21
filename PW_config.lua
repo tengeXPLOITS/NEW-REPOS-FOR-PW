@@ -12,6 +12,7 @@ function Config.initializeSettings(settings, touchEnabled, defaultBoothText)
     settings.autoClaimThreshold = tonumber(settings.autoClaimThreshold) or 50
     if settings.autoUpdateBoothText == nil then settings.autoUpdateBoothText = true end
     settings.antiAfk = settings.antiAfk or false
+    settings.anonymousMode = settings.anonymousMode == true
     settings.serverStayTime = settings.serverStayTime or 30
     local boothPositionPreference = tostring(settings.boothPositionPreference or "front"):lower()
     if boothPositionPreference ~= "front" and boothPositionPreference ~= "left" and boothPositionPreference ~= "right" then boothPositionPreference = "front" end
@@ -70,6 +71,7 @@ function Config.create(dependencies)
             autoClaimThreshold = settings.autoClaimThreshold,
             autoUpdateBoothText = settings.autoUpdateBoothText,
             antiAfk = settings.antiAfk,
+            anonymousMode = settings.anonymousMode == true,
             touchPreventAFK = settings.touchPreventAFK,
             persistToggles = settings.persistToggles,
             spinOnDonation = settings.spinSet,
@@ -158,6 +160,7 @@ function Config.create(dependencies)
             settings.autoUpdateBoothText = false
         end
         if decoded.antiAfk ~= nil then settings.antiAfk = decoded.antiAfk end
+        if decoded.anonymousMode ~= nil then settings.anonymousMode = decoded.anonymousMode == true end
         if decoded.touchPreventAFK ~= nil then settings.touchPreventAFK = decoded.touchPreventAFK end
         if decoded.persistToggles ~= nil then settings.persistToggles = decoded.persistToggles end
         if decoded.spinSet ~= nil then
