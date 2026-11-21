@@ -182,6 +182,7 @@ function UI.create(dependencies)
                     SETTINGS.boothText = cfg.boothText or SETTINGS.boothText
                     if cfg.staffHop ~= nil then SETTINGS.staffHop = cfg.staffHop end
                     if cfg.friendHop ~= nil then SETTINGS.friendHop = cfg.friendHop end
+                    if cfg.userHop ~= nil then SETTINGS.userHop = cfg.userHop == true end
                     if cfg.chatAutoThankYou ~= nil then SETTINGS.chatAutoThankYou = cfg.chatAutoThankYou end
                     if cfg.thankYouMessages ~= nil and type(cfg.thankYouMessages) == "table" then SETTINGS.thankYouMessages = cfg.thankYouMessages end
                     if cfg.autoServerHop ~= nil then autoServerHopEnabled = cfg.autoServerHop end
@@ -1811,17 +1812,7 @@ function UI.create(dependencies)
                     pcall(SaveSettings)
                 end)
 
-                local hopBtn = Instance.new("TextButton")
-                hopBtn.Size = UDim2.new(0,200,0,40)
-                hopBtn.Position = UDim2.new(0,10,0,112)
-                hopBtn.Text = "Server Hop Now"
-                hopBtn.BackgroundColor3 = Color3.fromRGB(90,90,90)
-                hopBtn.TextColor3 = Color3.fromRGB(255,255,255)
-                local hCorner = Instance.new("UICorner")
-                hCorner.Parent = hopBtn
-                hopBtn.Parent = frame
-                styleButton(hopBtn)
-                hopBtn.MouseButton1Click:Connect(function()
+                local function performSelectedSearch(searchSource, button)
                     local txt = (rangeBox and tostring(rangeBox.Text) or hopRangeText) or ""
                     local mn, mx = nil, nil
                     local lowered = (txt or ""):lower():gsub("%s+", "")
@@ -1837,8 +1828,40 @@ function UI.create(dependencies)
                     hopRangeText = txt
                     pcall(SaveSettings)
                     -- Use the shared retry controller so the live status and timeout fallback apply.
-                    pcall(function() hopBtn.Active = false; hopBtn.Text = "Searching..." end)
-                    manualHopTask = serverHopNow(mn, mx, true)
+                    pcall(function() button.Active = false; button.Text = "Searching..." end)
+                    manualHopTask = serverHopNow(mn, mx, true, searchSource)
+                end
+
+                local robloxSearchButton = Instance.new("TextButton")
+                robloxSearchButton.Size = UDim2.new(0,180,0,48)
+                robloxSearchButton.Position = UDim2.new(0,10,0,108)
+                robloxSearchButton.Text = "PERFORM SEARCH THROUGH ROBLOX [FAST]"
+                robloxSearchButton.TextWrapped = true
+                robloxSearchButton.TextSize = 11
+                robloxSearchButton.BackgroundColor3 = Color3.fromRGB(90,90,90)
+                robloxSearchButton.TextColor3 = Color3.fromRGB(255,255,255)
+                local robloxSearchCorner = Instance.new("UICorner")
+                robloxSearchCorner.Parent = robloxSearchButton
+                robloxSearchButton.Parent = frame
+                styleButton(robloxSearchButton)
+                robloxSearchButton.MouseButton1Click:Connect(function()
+                    performSelectedSearch("roblox", robloxSearchButton)
+                end)
+
+                local gameListSearchButton = Instance.new("TextButton")
+                gameListSearchButton.Size = UDim2.new(0,180,0,48)
+                gameListSearchButton.Position = UDim2.new(0,198,0,108)
+                gameListSearchButton.Text = "PERFORM SEARCH THROUGH IN-GAME LIST [TIME CONSUMING]"
+                gameListSearchButton.TextWrapped = true
+                gameListSearchButton.TextSize = 10
+                gameListSearchButton.BackgroundColor3 = Color3.fromRGB(90,90,90)
+                gameListSearchButton.TextColor3 = Color3.fromRGB(255,255,255)
+                local gameListSearchCorner = Instance.new("UICorner")
+                gameListSearchCorner.Parent = gameListSearchButton
+                gameListSearchButton.Parent = frame
+                styleButton(gameListSearchButton)
+                gameListSearchButton.MouseButton1Click:Connect(function()
+                    performSelectedSearch("ingame", gameListSearchButton)
                 end)
 
                 -- Population Hopper (background monitor)
@@ -2082,6 +2105,38 @@ function UI.create(dependencies)
                         checkFriendAndHop(player)
                     end
                 end
+
+                local userHopToggle = Instance.new("TextButton")
+                userHopToggle.Name = "UserHopToggle"
+                userHopToggle.Size = UDim2.new(0,120,0,24)
+                userHopToggle.Position = UDim2.new(0,10,0,326)
+                userHopToggle.Text = SETTINGS.userHop and "USER HOP: ON" or "USER HOP: OFF"
+                userHopToggle.BackgroundColor3 = SETTINGS.userHop and Color3.fromRGB(38,102,70) or Color3.fromRGB(70,70,70)
+                userHopToggle.TextColor3 = Color3.fromRGB(255,255,255)
+                userHopToggle.TextSize = 11
+                userHopToggle.Parent = frame
+                local userHopCorner = Instance.new("UICorner")
+                userHopCorner.Parent = userHopToggle
+                styleButton(userHopToggle)
+
+                local userHopDescription = Instance.new("TextLabel")
+                userHopDescription.Size = UDim2.new(0,246,0,32)
+                userHopDescription.Position = UDim2.new(0,136,0,322)
+                userHopDescription.BackgroundTransparency = 1
+                userHopDescription.Text = "When enabled, you will avoid other people using this UI."
+                userHopDescription.TextColor3 = Color3.fromRGB(220,220,220)
+                userHopDescription.Font = Enum.Font.Gotham
+                userHopDescription.TextSize = 10
+                userHopDescription.TextWrapped = true
+                userHopDescription.TextXAlignment = Enum.TextXAlignment.Left
+                userHopDescription.Parent = frame
+
+                userHopToggle.MouseButton1Click:Connect(function()
+                    SETTINGS.userHop = SETTINGS.userHop ~= true
+                    userHopToggle.Text = SETTINGS.userHop and "USER HOP: ON" or "USER HOP: OFF"
+                    userHopToggle.BackgroundColor3 = SETTINGS.userHop and Color3.fromRGB(38,102,70) or Color3.fromRGB(70,70,70)
+                    pcall(SaveSettings)
+                end)
             end
 
             -- Settings tab removed per user request
