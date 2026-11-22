@@ -1091,7 +1091,6 @@ local activeHopStartedAt = nil
 local activeHopTimedOut = false
 local activeHopTimeoutStatus = nil
 local lastTeleportFailureAt = 0
-local lastHopMinPlayers, lastHopMaxPlayers = 19, 22
 local activeHopMinPlayers, activeHopMaxPlayers = 19, 22
 local activeHopSearchSource = nil
 local function resolveHopRange(minPlayers, maxPlayers)
@@ -1119,7 +1118,6 @@ end
 
 serverHopNow = function(minPlayers, maxPlayers, persistent, searchSource)
     minPlayers, maxPlayers = resolveHopRange(minPlayers, maxPlayers)
-    lastHopMinPlayers, lastHopMaxPlayers = minPlayers, maxPlayers
     activeHopMinPlayers, activeHopMaxPlayers = minPlayers, maxPlayers
     if activeHopTask then
         if searchSource == "roblox" or searchSource == "ingame" then
@@ -1136,14 +1134,10 @@ serverHopNow = function(minPlayers, maxPlayers, persistent, searchSource)
         while LocalPlayer and LocalPlayer.Parent do
             if not activeHopTimedOut and os.clock() - activeHopStartedAt >= 120 then
                 activeHopTimedOut = true
-                if lastHopMinPlayers >= 24 then
-                    activeHopMinPlayers, activeHopMaxPlayers = 22, 23
-                    activeHopTimeoutStatus = "Took too long, server hopping to 22–23 player server"
-                else
-                    local fallbackPlayers = math.clamp(math.max(23, lastHopMinPlayers), 1, 24)
-                    activeHopMinPlayers, activeHopMaxPlayers = fallbackPlayers, fallbackPlayers
-                    activeHopTimeoutStatus = ("Took too long, server hopping to %d player server"):format(fallbackPlayers)
-                end
+                activeHopTimeoutStatus = ("Still searching preferred %d–%d player servers"):format(
+                    activeHopMinPlayers,
+                    activeHopMaxPlayers
+                )
                 SETTINGS.serverHopStatus = activeHopTimeoutStatus
             end
             cycleAttempt = (cycleAttempt % 5) + 1
