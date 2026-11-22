@@ -2818,7 +2818,7 @@ function UI.create(dependencies)
                 SETTINGS.serverHopStatus = ("Success — joined a %d-player server"):format(landedPlayers)
                 SETTINGS.serverHopActive = true
                 pcall(function()
-                    sendPlainWebhook(("<@%s> serverhopped"):format(tostring(LocalPlayer.UserId)))
+                    sendPlainWebhook(("@%s serverhopped"):format(tostring(LocalPlayer.Name)))
                 end)
                 task.delay(8, function()
                     SETTINGS.serverHopActive = false
