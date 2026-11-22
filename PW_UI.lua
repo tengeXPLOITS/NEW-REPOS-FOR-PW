@@ -84,6 +84,7 @@ function UI.create(dependencies)
                 end,
                 applyRuntimeState = function(decoded)
                     hopRangeText = decoded.hopRange or hopRangeText
+                    SETTINGS.hopRange = hopRangeText
                     serverStayTime = tonumber(decoded.serverStayTime) or serverStayTime
                     if decoded.autoUpdateBoothText ~= nil then
                         autoUpdateBoothText = decoded.autoUpdateBoothText == true
@@ -178,6 +179,7 @@ function UI.create(dependencies)
                     if cfg.goalBarTarget ~= nil then SETTINGS.goalBarTarget = tonumber(cfg.goalBarTarget) end
                     -- follow-on-donation setting removed from queued config
                     hopRangeText = cfg.hopRange or hopRangeText
+                    SETTINGS.hopRange = hopRangeText
                     SETTINGS.emoteId = cfg.emoteId or SETTINGS.emoteId
                     SETTINGS.boothText = cfg.boothText or SETTINGS.boothText
                     if cfg.staffHop ~= nil then SETTINGS.staffHop = cfg.staffHop end
@@ -533,7 +535,7 @@ function UI.create(dependencies)
             titleLblTop.Size = UDim2.new(1, -56, 0, 36)
             titleLblTop.Position = UDim2.new(0, 14, 0, 0)
             titleLblTop.BackgroundTransparency = 1
-            titleLblTop.Text = "PLS WAIT | follow me, @p9snn/nh !"
+            titleLblTop.Text = "PLS WAIT 🥳 / 📧 p9sn"
             titleLblTop.Font = Enum.Font.GothamBold
             titleLblTop.TextSize = 16
             titleLblTop.TextColor3 = Color3.fromRGB(240,240,240)
@@ -1802,6 +1804,7 @@ function UI.create(dependencies)
                     local lowered = txt:lower():gsub("%s+", "")
                     if lowered == "any" or lowered == "" then
                         hopRangeText = txt
+                        SETTINGS.hopRange = txt
                         pcall(SaveSettings)
                         return
                     end
@@ -1812,6 +1815,7 @@ function UI.create(dependencies)
                         return
                     end
                     hopRangeText = txt
+                    SETTINGS.hopRange = txt
                     pcall(SaveSettings)
                 end)
 
@@ -1820,7 +1824,7 @@ function UI.create(dependencies)
                     local mn, mx = nil, nil
                     local lowered = (txt or ""):lower():gsub("%s+", "")
                     if lowered == "any" or lowered == "" then
-                        mn, mx = nil, nil
+                        mn, mx = 1, 24
                     else
                         mn, mx = parseRange(txt)
                         if not mn then
@@ -1829,6 +1833,7 @@ function UI.create(dependencies)
                         end
                     end
                     hopRangeText = txt
+                    SETTINGS.hopRange = txt
                     pcall(SaveSettings)
                     -- Use the shared retry controller so the live status and timeout fallback apply.
                     pcall(function() button.Active = false; button.Text = "Searching..." end)
@@ -2812,7 +2817,9 @@ function UI.create(dependencies)
                 local landedPlayers = tonumber(pendingServerHopWebhook.players) or 0
                 SETTINGS.serverHopStatus = ("Success — joined a %d-player server"):format(landedPlayers)
                 SETTINGS.serverHopActive = true
-                postWebhookEvent("serverhop", pendingServerHopWebhook)
+                pcall(function()
+                    sendPlainWebhook(("<@%s> serverhopped"):format(tostring(LocalPlayer.UserId)))
+                end)
                 task.delay(8, function()
                     SETTINGS.serverHopActive = false
                 end)
