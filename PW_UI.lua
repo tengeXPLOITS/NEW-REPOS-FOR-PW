@@ -340,7 +340,7 @@ function UI.create(dependencies)
             hopStatusTitle.Position = UDim2.new(0, 9, 0, 6)
             hopStatusTitle.BackgroundTransparency = 1
             hopStatusTitle.Font = Enum.Font.GothamBold
-            hopStatusTitle.Text = "SERVER HOP RETRIER"
+            hopStatusTitle.Text = "SERVER HOP RETRIER 🩷"
             hopStatusTitle.TextColor3 = Color3.new(1, 1, 1)
             hopStatusTitle.TextSize = 13
             hopStatusTitle.TextXAlignment = Enum.TextXAlignment.Left
@@ -535,7 +535,7 @@ function UI.create(dependencies)
             titleLblTop.Size = UDim2.new(1, -56, 0, 36)
             titleLblTop.Position = UDim2.new(0, 14, 0, 0)
             titleLblTop.BackgroundTransparency = 1
-            titleLblTop.Text = "PLS WAIT 🥳 / 📧 p9sn"
+            titleLblTop.Text = "les amo mucho | @p9snn/ nh"
             titleLblTop.Font = Enum.Font.GothamBlack
             titleLblTop.TextSize = 18
             titleLblTop.TextColor3 = Color3.fromRGB(240,240,240)
