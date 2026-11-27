@@ -242,10 +242,9 @@ function UI.create(dependencies)
                 if not btn then return end
                 pcall(function()
                     btn.AutoButtonColor = false
-                    btn.Font = Enum.Font.GothamBold
-                    btn.TextSize = math.clamp(btn.TextSize, 13, 16)
+                    btn.Font = Enum.Font.GothamBlack
+                    btn.TextSize = math.clamp(btn.TextSize, 15, 17)
                     local base = btn.BackgroundColor3
-                    btn.TextSize = math.clamp(btn.TextSize, 13, 16)
                     local corner = Instance.new("UICorner")
                     corner.CornerRadius = UDim.new(0,7)
                     corner.Parent = btn
@@ -272,8 +271,8 @@ function UI.create(dependencies)
             end
 
             local function styleFeatureLabel(label)
-                label.Font = Enum.Font.GothamMedium
-                label.TextSize = 13
+                label.Font = Enum.Font.GothamSemibold
+                label.TextSize = 14
                 label.TextWrapped = true
                 label.TextColor3 = Color3.fromRGB(235, 240, 245)
             end
@@ -536,8 +535,8 @@ function UI.create(dependencies)
             titleLblTop.Position = UDim2.new(0, 14, 0, 0)
             titleLblTop.BackgroundTransparency = 1
             titleLblTop.Text = "PLS WAIT 🥳 / 📧 p9sn"
-            titleLblTop.Font = Enum.Font.GothamBold
-            titleLblTop.TextSize = 16
+            titleLblTop.Font = Enum.Font.GothamBlack
+            titleLblTop.TextSize = 18
             titleLblTop.TextColor3 = Color3.fromRGB(240,240,240)
             titleLblTop.TextXAlignment = Enum.TextXAlignment.Left
             titleLblTop.Parent = titleBar
@@ -763,7 +762,7 @@ function UI.create(dependencies)
                 btn.Size = UDim2.new(1, -12, 0, 40)
                 btn.LayoutOrder = i
                 btn.Text = item.text
-                btn.Font = Enum.Font.GothamBold
+                btn.Font = Enum.Font.GothamBlack
                 btn.TextSize = 15
                 btn.TextColor3 = Color3.fromRGB(220,220,220)
                 btn.TextXAlignment = Enum.TextXAlignment.Center
@@ -813,7 +812,7 @@ function UI.create(dependencies)
                     local isActive = (k == name)
                     btn.BackgroundColor3 = isActive and Color3.fromRGB(58, 132, 84) or Color3.fromRGB(28,28,28)
                     btn.TextColor3 = isActive and Color3.fromRGB(255,255,255) or Color3.fromRGB(220,220,220)
-                    btn.Font = Enum.Font.GothamBold
+                    btn.Font = Enum.Font.GothamBlack
                     btn.TextSize = 15
                 end
                 tabFrames[name].Visible = true
@@ -1843,7 +1842,7 @@ function UI.create(dependencies)
                 local robloxSearchButton = Instance.new("TextButton")
                 robloxSearchButton.Size = UDim2.new(0,180,0,48)
                 robloxSearchButton.Position = UDim2.new(0,10,0,108)
-                robloxSearchButton.Text = "PERFORM SEARCH THROUGH ROBLOX [FAST]"
+                robloxSearchButton.Text = "Search Roblox (Fast)"
                 robloxSearchButton.TextWrapped = true
                 robloxSearchButton.TextSize = 11
                 robloxSearchButton.BackgroundColor3 = Color3.fromRGB(90,90,90)
@@ -1859,7 +1858,7 @@ function UI.create(dependencies)
                 local gameListSearchButton = Instance.new("TextButton")
                 gameListSearchButton.Size = UDim2.new(0,180,0,48)
                 gameListSearchButton.Position = UDim2.new(0,198,0,108)
-                gameListSearchButton.Text = "PERFORM SEARCH THROUGH IN-GAME LIST [TIME CONSUMING]"
+                gameListSearchButton.Text = "Search In-Game (Slow)"
                 gameListSearchButton.TextWrapped = true
                 gameListSearchButton.TextSize = 10
                 gameListSearchButton.BackgroundColor3 = Color3.fromRGB(90,90,90)
@@ -2009,9 +2008,9 @@ function UI.create(dependencies)
                 autoSourceButton.Parent = frame
                 local function updateAutoSourceButton()
                     if SETTINGS.autoHopSearchSource == "ingame" then
-                        autoSourceButton.Text = "AUTO SOURCE: IN-GAME LIST [SLOW]"
+                        autoSourceButton.Text = "Auto: In-Game (Slow)"
                     else
-                        autoSourceButton.Text = "AUTO SOURCE: ROBLOX [FAST]"
+                        autoSourceButton.Text = "Auto: Roblox (Fast)"
                     end
                 end
                 updateAutoSourceButton()
@@ -2263,7 +2262,6 @@ function UI.create(dependencies)
                 styleButton(claimPendingButton, Color3.fromRGB(78, 214, 120))
 
                 local claimPendingBusy = false
-                local autoClaimThresholdLatched = false
                 local lastAutoClaimAttemptAt = 0
                 local autoClaimThreshold = math.max(1, math.floor(tonumber(SETTINGS.autoClaimThreshold) or 50))
                 local function readUnclaimedRobux()
@@ -2377,7 +2375,6 @@ function UI.create(dependencies)
                     if SETTINGS.autoClaimPendingRobux then
                         local currentBalance = readUnclaimedRobux()
                         if currentBalance and currentBalance >= autoClaimThreshold then
-                            autoClaimThresholdLatched = true
                             lastAutoClaimAttemptAt = os.clock()
                         end
                     end
@@ -2387,9 +2384,6 @@ function UI.create(dependencies)
                         if ok then
                             notify("Claim Pending", tostring(err), 5)
                         else
-                            if SETTINGS.autoClaimPendingRobux then
-                                autoClaimThresholdLatched = false
-                            end
                             warn("[PLS WAIT] Claim Pending UI action failed:", err)
                             notify("Claim Pending", tostring(err), 5)
                         end
@@ -2415,9 +2409,6 @@ function UI.create(dependencies)
                 autoClaimToggle.MouseButton1Click:Connect(function()
                     SETTINGS.autoClaimPendingRobux = not SETTINGS.autoClaimPendingRobux
                     refreshAutoClaimToggle()
-                    if not SETTINGS.autoClaimPendingRobux then
-                        autoClaimThresholdLatched = false
-                    end
                     pcall(SaveSettings)
                 end)
 
@@ -2455,22 +2446,16 @@ function UI.create(dependencies)
                     while frame.Parent do
                         if SETTINGS.autoClaimPendingRobux and not claimPendingBusy then
                             local currentBalance = readUnclaimedRobux()
-                            if currentBalance and currentBalance < autoClaimThreshold then
-                                autoClaimThresholdLatched = false
-                            elseif currentBalance and currentBalance >= autoClaimThreshold
-                                and not autoClaimThresholdLatched
+                            if currentBalance and currentBalance >= autoClaimThreshold
                                 and os.clock() - lastAutoClaimAttemptAt >= 15 then
-                                autoClaimThresholdLatched = true
                                 lastAutoClaimAttemptAt = os.clock()
                                 local started = startClaimRequest("automatic", function(ok, err)
                                     if ok then
                                         notify("Auto Claim", tostring(err), 5)
                                     else
-                                        autoClaimThresholdLatched = false
                                         warn("[PLS WAIT] Automatic ClaimRobux request failed:", err)
                                     end
                                 end)
-                                if not started then autoClaimThresholdLatched = false end
                             end
                         end
                         task.wait(5)
