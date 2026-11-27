@@ -157,6 +157,7 @@ function UI.create(dependencies)
                     if cfg.autoDonateEnabled ~= nil then SETTINGS.autoDonateEnabled = cfg.autoDonateEnabled == true end
                     if cfg.claimPrice ~= nil then SETTINGS.claimPrice = tostring(cfg.claimPrice) end
                     if cfg.autoClaimPendingRobux ~= nil then SETTINGS.autoClaimPendingRobux = cfg.autoClaimPendingRobux end
+                    if cfg.autoClaimDailyRewards ~= nil then SETTINGS.autoClaimDailyRewards = cfg.autoClaimDailyRewards == true end
                     SETTINGS.autoClaimThreshold = tonumber(cfg.autoClaimThreshold) or SETTINGS.autoClaimThreshold
                     if cfg.autoUpdateBoothText ~= nil then
                         autoUpdateBoothText = cfg.autoUpdateBoothText == true
@@ -271,7 +272,7 @@ function UI.create(dependencies)
             end
 
             local function styleFeatureLabel(label)
-                label.Font = Enum.Font.GothamSemibold
+                label.Font = Enum.Font.BuilderSansBold
                 label.TextSize = 14
                 label.TextWrapped = true
                 label.TextColor3 = Color3.fromRGB(235, 240, 245)
@@ -754,7 +755,7 @@ function UI.create(dependencies)
             leftList.VerticalAlignment = Enum.VerticalAlignment.Top
             leftList.Parent = leftCol
 
-            local menu = { {key="Booth", text="Booth"}, {key="Main", text="Main"}, {key="ServerHop", text="Server Hop"}, {key="Webhook", text="Webhook"}, {key="Chat", text="Chat"} }
+            local menu = { {key="Booth", text="Booth"}, {key="Main", text="Main"}, {key="Extra", text="Extra"}, {key="ServerHop", text="Server Hop"}, {key="Webhook", text="Webhook"}, {key="Chat", text="Chat"} }
             local tabButtons = {}
             local tabFrames = {}
             for i, item in ipairs(menu) do
@@ -1191,9 +1192,28 @@ function UI.create(dependencies)
                 content.Position = UDim2.new(0, 6, 0, 6)
                 content.BackgroundTransparency = 1
                 content.ScrollBarThickness = 8
-                content.CanvasSize = UDim2.new(0,0,0,800)
+                content.CanvasSize = UDim2.new(0,0,0,320)
                 content.Parent = rootFrame
                 local frame = content
+                local extraContent = Instance.new("ScrollingFrame")
+                extraContent.Name = "ExtraScroll"
+                extraContent.Size = UDim2.new(1, -12, 1, -12)
+                extraContent.Position = UDim2.new(0, 6, 0, 6)
+                extraContent.BackgroundTransparency = 1
+                extraContent.ScrollBarThickness = 8
+                extraContent.CanvasSize = UDim2.new(0, 0, 0, 300)
+                extraContent.Parent = tabFrames.Extra
+
+                local extraTitle = Instance.new("TextLabel")
+                extraTitle.Size = UDim2.new(0, 220, 0, 28)
+                extraTitle.Position = UDim2.new(0, 10, 0, 8)
+                extraTitle.BackgroundTransparency = 1
+                extraTitle.Text = "Extra Features"
+                extraTitle.Font = Enum.Font.BuilderSansBold
+                extraTitle.TextSize = 18
+                extraTitle.TextColor3 = Color3.fromRGB(240, 240, 240)
+                extraTitle.TextXAlignment = Enum.TextXAlignment.Left
+                extraTitle.Parent = extraContent
                 -- Claim button removed (auto-claim runs on load/teleport)
 
                 local afkLabel = Instance.new("TextLabel")
@@ -1528,7 +1548,7 @@ function UI.create(dependencies)
                 local speedLabel = Instance.new("TextLabel")
                 speedLabel.Size = UDim2.new(0,160,0,20)
                 speedLabel.Position = UDim2.new(0,10,0,282)
-                speedLabel.Text = "Spin Speed Multiplier"
+                speedLabel.Text = "Spin Speed Mult."
                 speedLabel.BackgroundTransparency = 1
                 speedLabel.TextColor3 = Color3.new(1,1,1)
                 speedLabel.Parent = frame
@@ -1609,16 +1629,16 @@ function UI.create(dependencies)
 
                 local fpsLimitLabel = Instance.new("TextLabel")
                 fpsLimitLabel.Size = UDim2.new(0, 120, 0, 20)
-                fpsLimitLabel.Position = UDim2.new(0, 10, 0, 322)
+                fpsLimitLabel.Position = UDim2.new(0, 10, 0, 48)
                 fpsLimitLabel.Text = "FPS Limit"
                 fpsLimitLabel.BackgroundTransparency = 1
                 fpsLimitLabel.TextColor3 = Color3.new(1, 1, 1)
-                fpsLimitLabel.Parent = frame
+                fpsLimitLabel.Parent = extraContent
                 styleFeatureLabel(fpsLimitLabel)
 
                 local fpsLimitBox = Instance.new("TextBox")
                 fpsLimitBox.Size = UDim2.new(0, 100, 0, 24)
-                fpsLimitBox.Position = UDim2.new(0, 140, 0, 320)
+                fpsLimitBox.Position = UDim2.new(0, 140, 0, 48)
                 fpsLimitBox.Text = SETTINGS.fpsLimit and tostring(SETTINGS.fpsLimit) or ""
                 fpsLimitBox.PlaceholderText = "5–1000"
                 fpsLimitBox.ClearTextOnFocus = false
@@ -1627,7 +1647,7 @@ function UI.create(dependencies)
                 fpsLimitBox.Font = Enum.Font.GothamMedium
                 fpsLimitBox.TextSize = 16
                 fpsLimitBox.TextXAlignment = Enum.TextXAlignment.Left
-                fpsLimitBox.Parent = frame
+                fpsLimitBox.Parent = extraContent
                 local fpsCorner = Instance.new("UICorner")
                 fpsCorner.Parent = fpsLimitBox
                 fpsLimitBox.FocusLost:Connect(function()
@@ -1652,22 +1672,22 @@ function UI.create(dependencies)
 
                 local anonymousLabel = Instance.new("TextLabel")
                 anonymousLabel.Size = UDim2.new(0, 120, 0, 24)
-                anonymousLabel.Position = UDim2.new(0, 10, 0, 360)
+                anonymousLabel.Position = UDim2.new(0, 10, 0, 107)
                 anonymousLabel.Text = "Anonymous Mode"
                 anonymousLabel.BackgroundTransparency = 1
                 anonymousLabel.TextColor3 = Color3.new(1, 1, 1)
-                anonymousLabel.Parent = frame
+                anonymousLabel.Parent = extraContent
                 styleFeatureLabel(anonymousLabel)
 
                 local anonymousToggle = Instance.new("TextButton")
                 anonymousToggle.Size = UDim2.new(0, 60, 0, 24)
-                anonymousToggle.Position = UDim2.new(0, 140, 0, 360)
+                anonymousToggle.Position = UDim2.new(0, 140, 0, 105)
                 anonymousToggle.Text = SETTINGS.anonymousMode and "ON" or "OFF"
                 anonymousToggle.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
                 anonymousToggle.TextColor3 = Color3.new(1, 1, 1)
-                anonymousToggle.Parent = frame
+                anonymousToggle.Parent = extraContent
                 styleButton(anonymousToggle)
-                addFeatureHint(frame, "Hides your live identity using the game's supported toggle.", 210, 363, 195)
+                addFeatureHint(extraContent, "Hides your live identity using the game's supported toggle.", 10, 132, 330)
                 anonymousToggle.MouseButton1Click:Connect(function()
                     local requested = not SETTINGS.anonymousMode
                     local applied, applyError = setAnonymousModeEnabled(requested)
@@ -1683,22 +1703,22 @@ function UI.create(dependencies)
 
                 local donationEmoteLabel = Instance.new("TextLabel")
                 donationEmoteLabel.Size = UDim2.new(0, 125, 0, 24)
-                donationEmoteLabel.Position = UDim2.new(0, 10, 0, 396)
+                donationEmoteLabel.Position = UDim2.new(0, 10, 0, 164)
                 donationEmoteLabel.Text = "Donation Chat Emote"
                 donationEmoteLabel.BackgroundTransparency = 1
                 donationEmoteLabel.TextColor3 = Color3.new(1, 1, 1)
-                donationEmoteLabel.Parent = frame
+                donationEmoteLabel.Parent = extraContent
                 styleFeatureLabel(donationEmoteLabel)
 
                 local donationEmoteToggle = Instance.new("TextButton")
                 donationEmoteToggle.Size = UDim2.new(0, 60, 0, 24)
-                donationEmoteToggle.Position = UDim2.new(0, 140, 0, 396)
+                donationEmoteToggle.Position = UDim2.new(0, 140, 0, 162)
                 donationEmoteToggle.Text = SETTINGS.donationEmoteEnabled and "ON" or "OFF"
                 donationEmoteToggle.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
                 donationEmoteToggle.TextColor3 = Color3.new(1, 1, 1)
-                donationEmoteToggle.Parent = frame
+                donationEmoteToggle.Parent = extraContent
                 styleButton(donationEmoteToggle)
-                addFeatureHint(frame, "Randomly sends /e wave, /e cheer, or /e laugh.", 210, 399, 215)
+                addFeatureHint(extraContent, "Randomly sends /e wave, /e cheer, or /e laugh.", 10, 189, 330)
                 donationEmoteToggle.MouseButton1Click:Connect(function()
                     SETTINGS.donationEmoteEnabled = not SETTINGS.donationEmoteEnabled
                     donationEmoteToggle.Text = SETTINGS.donationEmoteEnabled and "ON" or "OFF"
@@ -1706,12 +1726,61 @@ function UI.create(dependencies)
                     notify("Donation Chat Emote", SETTINGS.donationEmoteEnabled and "Enabled." or "Disabled.", 4)
                 end)
 
+                local autoClaimDailyRewardsButton = Instance.new("TextButton")
+                autoClaimDailyRewardsButton.Size = UDim2.new(0, 330, 0, 30)
+                autoClaimDailyRewardsButton.Position = UDim2.new(0, 10, 0, 230)
+                autoClaimDailyRewardsButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+                autoClaimDailyRewardsButton.Parent = extraContent
+                local function refreshAutoClaimDailyRewardsButton()
+                    local enabled = SETTINGS.autoClaimDailyRewards == true
+                    autoClaimDailyRewardsButton.Text = enabled and "Auto Claim Daily Rewards: ON" or "Auto Claim Daily Rewards: OFF"
+                    autoClaimDailyRewardsButton.BackgroundColor3 = enabled and Color3.fromRGB(44, 170, 88) or Color3.fromRGB(80, 80, 80)
+                end
+                refreshAutoClaimDailyRewardsButton()
+                styleButton(autoClaimDailyRewardsButton)
+                autoClaimDailyRewardsButton.MouseButton1Click:Connect(function()
+                    SETTINGS.autoClaimDailyRewards = not (SETTINGS.autoClaimDailyRewards == true)
+                    refreshAutoClaimDailyRewardsButton()
+                    pcall(SaveSettings)
+                end)
+                addFeatureHint(extraContent, "Claims when available and waits for the next daily reset.", 10, 264, 330)
+
+                task.spawn(function()
+                    local nextDailyClaimAt = 0
+                    while extraContent.Parent do
+                        if SETTINGS.autoClaimDailyRewards == true and os.time() >= nextDailyClaimAt then
+                            local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
+                            local mainGui = playerGui and playerGui:FindFirstChild("Main")
+                            local folder = mainGui and mainGui:FindFirstChild("Folder")
+                            local dailyLogins = folder and folder:FindFirstChild("DailyLogins")
+                            local dailyRewardsScript = dailyLogins and dailyLogins:FindFirstChild("DailyRewardsScript")
+                            local dailyRewardsRemote = ReplicatedStorage:FindFirstChild("DailyRewards")
+                            if dailyRewardsScript and dailyRewardsScript:IsA("LocalScript")
+                                and dailyRewardsRemote and dailyRewardsRemote:IsA("RemoteFunction") then
+                                local callOk, claimed, rewardData, dailyStatus = pcall(function()
+                                    return dailyRewardsRemote:InvokeServer("Claim")
+                                end)
+                                if callOk and claimed == true then
+                                    local resetsAt = type(dailyStatus) == "table" and tonumber(dailyStatus.resetsAt) or nil
+                                    nextDailyClaimAt = resetsAt and resetsAt > os.time() and resetsAt or (os.time() + 86400)
+                                    notify("Daily Rewards", "Daily reward claimed.", 5)
+                                else
+                                    nextDailyClaimAt = os.time() + 60
+                                end
+                            else
+                                nextDailyClaimAt = os.time() + 60
+                            end
+                        end
+                        task.wait(5)
+                    end
+                end)
+
                 addFeatureHint(frame, "Prevents idle disconnection.", 210, 13, 190)
                 addFeatureHint(frame, "Keeps activity input running.", 210, 45, 190)
                 addFeatureHint(frame, "Replays the selected emote automatically.", 210, 223, 190)
                 addFeatureHint(frame, "Adds a spin response when a donation is detected.", 210, 255, 210)
                 addFeatureHint(frame, "Adjusts spin strength; larger values spin faster.", 270, 284, 175)
-                addFeatureHint(frame, "Applies an executor-supported frame cap.", 255, 323, 190)
+                addFeatureHint(extraContent, "Applies an executor-supported frame cap.", 10, 75, 330)
 
                 autoEmoteToggle.MouseButton1Click:Connect(function()
                     SETTINGS.emotePlaying = not SETTINGS.emotePlaying
