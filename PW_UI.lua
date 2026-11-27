@@ -544,14 +544,14 @@ function UI.create(dependencies)
 
             local liveUsersLabel = Instance.new("TextLabel")
             liveUsersLabel.Name = "LiveUsersTracker"
-            liveUsersLabel.Size = UDim2.new(0, 126, 0, 22)
-            liveUsersLabel.Position = UDim2.new(1, -172, 0, 7)
+            liveUsersLabel.Size = UDim2.new(0, 180, 0, 22)
+            liveUsersLabel.Position = UDim2.new(1, -226, 0, 7)
             liveUsersLabel.BackgroundColor3 = Color3.fromRGB(53, 61, 73)
             liveUsersLabel.BorderSizePixel = 0
             liveUsersLabel.Font = Enum.Font.GothamSemibold
-            liveUsersLabel.Text = "USERS: …"
+            liveUsersLabel.Text = "LIVE REGISTERED USERS: …"
             liveUsersLabel.TextColor3 = Color3.fromRGB(225, 234, 245)
-            liveUsersLabel.TextSize = 10
+            liveUsersLabel.TextSize = 9
             liveUsersLabel.ZIndex = 51
             liveUsersLabel.Parent = titleBar
             local liveUsersCorner = Instance.new("UICorner")
@@ -561,7 +561,7 @@ function UI.create(dependencies)
             liveUsersStroke.Color = Color3.fromRGB(90, 111, 137)
             liveUsersStroke.Thickness = 1
             liveUsersStroke.Parent = liveUsersLabel
-            titleLblTop.Size = UDim2.new(1, -192, 0, 36)
+            titleLblTop.Size = UDim2.new(1, -250, 0, 36)
 
             local trackerBusy = false
             local trackerSessionId = HttpService:GenerateGUID(false)
@@ -601,11 +601,11 @@ function UI.create(dependencies)
                         trackerBusy = true
                         local stats = sendPresenceHeartbeat()
                         if stats and tonumber(stats.activeUiUsers) then
-                            liveUsersLabel.Text = "USERS: " .. tostring(stats.activeUiUsers)
+                            liveUsersLabel.Text = "LIVE REGISTERED USERS: " .. tostring(stats.activeUiUsers)
                             liveUsersLabel.TextColor3 = Color3.fromRGB(225, 245, 232)
                             liveUsersLabel.BackgroundColor3 = Color3.fromRGB(38, 82, 59)
                         else
-                            liveUsersLabel.Text = "USERS: —"
+                            liveUsersLabel.Text = "LIVE REGISTERED USERS: —"
                             liveUsersLabel.TextColor3 = Color3.fromRGB(225, 234, 245)
                             liveUsersLabel.BackgroundColor3 = Color3.fromRGB(53, 61, 73)
                         end
