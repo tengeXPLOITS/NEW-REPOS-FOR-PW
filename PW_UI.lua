@@ -2240,6 +2240,31 @@ function UI.create(dependencies)
                 userHopDescription.TextXAlignment = Enum.TextXAlignment.Left
                 userHopDescription.Parent = frame
 
+                local userHopTriggeredForServer = false
+                task.spawn(function()
+                    while frame.Parent do
+                        if SETTINGS.userHop == true and not userHopTriggeredForServer then
+                            local statsPath = "/v1/stats?placeId=" .. HttpService:UrlEncode(tostring(game.PlaceId))
+                                .. "&jobId=" .. HttpService:UrlEncode(tostring(game.JobId))
+                                .. "&sessionId=" .. HttpService:UrlEncode(trackerSessionId)
+                            local stats = trackerRequest(statsPath, "GET")
+                            local otherSessions = type(stats) == "table" and tonumber(stats.otherUiUsersInServer)
+                            if otherSessions and otherSessions > 0 then
+                                userHopTriggeredForServer = true
+                                SETTINGS.serverHopStatus = "Another UI session found; searching for a different server..."
+                                pcall(function()
+                                    sendPlainWebhook(("@%s evasion from another farming session"):format(tostring(LocalPlayer.Name)))
+                                end)
+                                local txt = (rangeBox and tostring(rangeBox.Text) or hopRangeText) or ""
+                                local minPlayers, maxPlayers = parseRange(txt)
+                                serverHopNow(minPlayers, maxPlayers, true, SETTINGS.autoHopSearchSource)
+                            end
+                        elseif SETTINGS.userHop ~= true then
+                            userHopTriggeredForServer = false
+                        end
+                        task.wait(15)
+                    end
+                end)
                 userHopToggle.MouseButton1Click:Connect(function()
                     SETTINGS.userHop = SETTINGS.userHop ~= true
                     userHopToggle.Text = SETTINGS.userHop and "USER HOP: ON" or "USER HOP: OFF"
