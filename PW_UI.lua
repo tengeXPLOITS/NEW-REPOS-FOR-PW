@@ -1537,7 +1537,7 @@ function UI.create(dependencies)
 
                 local speedBox = Instance.new("TextBox")
                 speedBox.Size = UDim2.new(0,80,0,20)
-                speedBox.Position = UDim2.new(0,180,0,282)
+                speedBox.Position = UDim2.new(0,140,0,282)
                 speedBox.Text = tostring(SETTINGS.spinSpeedMultiplier or 1)
                 speedBox.ClearTextOnFocus = false
                 speedBox.BackgroundColor3 = Color3.fromRGB(60,60,60)
@@ -1911,6 +1911,12 @@ function UI.create(dependencies)
 
                 local populationHopperEnabled = SETTINGS.populationHopper or false
                 local populationMonitorTask = nil
+                local function quietServerPromptActive()
+                    local ok, prompt = pcall(function()
+                        return game:FindFirstChild("QuietServerPrompt", true)
+                    end)
+                    return ok and prompt ~= nil and prompt:IsA("BoolValue") and prompt.Value == true
+                end
 
                 local function startPopulationMonitor()
                     if populationMonitorTask then return end
@@ -1919,7 +1925,7 @@ function UI.create(dependencies)
                         while populationHopperEnabled do
                             local cnt = #Players:GetPlayers()
                             local thr = tonumber(SETTINGS.populationThreshold) or tonumber(thresholdBox.Text) or 17
-                            if cnt < thr then
+                            if cnt < thr or quietServerPromptActive() then
                                 local now = os.time()
                                 if now - lastHop > 60 then
                                     lastHop = now
