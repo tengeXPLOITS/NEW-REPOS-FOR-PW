@@ -8,7 +8,8 @@ function Config.initializeSettings(settings, touchEnabled, defaultBoothText)
     settings.donateTargetUsername = tostring(settings.donateTargetUsername or "")
     settings.autoDonateEnabled = settings.autoDonateEnabled == true
     settings.claimPrice = tostring(settings.claimPrice or "50")
-    settings.autoClaimPendingRobux = settings.autoClaimPendingRobux or false
+    settings.autoClaimPendingRobux = settings.autoClaimPendingRobux == true
+    settings.autoClaimDailyRewards = settings.autoClaimDailyRewards == true
     settings.autoClaimThreshold = tonumber(settings.autoClaimThreshold) or 50
     if settings.autoUpdateBoothText == nil then settings.autoUpdateBoothText = true end
     settings.antiAfk = settings.antiAfk or false
@@ -71,6 +72,7 @@ function Config.create(dependencies)
             autoDonateEnabled = settings.autoDonateEnabled,
             claimPrice = settings.claimPrice,
             autoClaimPendingRobux = settings.autoClaimPendingRobux,
+            autoClaimDailyRewards = settings.autoClaimDailyRewards == true,
             autoClaimThreshold = settings.autoClaimThreshold,
             autoUpdateBoothText = settings.autoUpdateBoothText,
             antiAfk = settings.antiAfk,
@@ -158,6 +160,7 @@ function Config.create(dependencies)
         if decoded.autoDonateEnabled ~= nil then settings.autoDonateEnabled = decoded.autoDonateEnabled == true end
         if decoded.claimPrice ~= nil then settings.claimPrice = tostring(decoded.claimPrice) end
         if decoded.autoClaimPendingRobux ~= nil then settings.autoClaimPendingRobux = decoded.autoClaimPendingRobux end
+        if decoded.autoClaimDailyRewards ~= nil then settings.autoClaimDailyRewards = decoded.autoClaimDailyRewards == true end
         if decoded.autoClaimThreshold ~= nil then settings.autoClaimThreshold = tonumber(decoded.autoClaimThreshold) or settings.autoClaimThreshold end
         if decoded.autoUpdateBoothText ~= nil then
             settings.autoUpdateBoothText = decoded.autoUpdateBoothText
