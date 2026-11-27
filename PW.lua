@@ -406,21 +406,14 @@ local function postWebhookEvent(kind, data)
             donorName = tostring(data.donorName or data.from)
         end
         local donationTimestamp = tonumber(data and data.timestamp) or os.time()
-        local discordTimestamp = "<t:" .. tostring(math.floor(donationTimestamp)) .. ":F>"
         local utcTimestamp = os.date("!%Y-%m-%dT%H:%M:%SZ", donationTimestamp)
-        local fields = {
-            { name = "Donor", value = donorName, inline = false },
-            { name = "Received By", value = "@" .. tostring(LocalPlayer and LocalPlayer.Name or "Unknown"), inline = false },
-            { name = "Amount Given", value = tostring(amount), inline = true },
-            { name = "Pending R$ (60%)", value = tostring(pending), inline = true },
-            { name = "Unclaimed Robux", value = unclaimedRobux, inline = true },
-            { name = "Received At", value = discordTimestamp, inline = false },
-        }
+        local recipientName = tostring(LocalPlayer and LocalPlayer.Name or "Unknown")
+        local mainText = ("@%s just got donated R$%d by %s 💵"):format(recipientName, amount, donorName)
+        local description = ("%s\n\n• Pending Robux (60%%): +%d\n• Unclaimed Robux: %s"):format(mainText, pending, unclaimedRobux)
         table.insert(embeds, {
-            title = "YOU RECEIVED A DONATION 💰",
+            description = description,
             color = 0x00FF00,
             timestamp = utcTimestamp,
-            fields = fields,
         })
     else
         if kind == "claim" and data and data.action == "ClaimRobux request" then
