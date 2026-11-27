@@ -1022,6 +1022,7 @@ local function serverSearchAttempt(minPlayers, maxPlayers, searchSource)
                     donationEmoteEnabled = SETTINGS.donationEmoteEnabled == true,
                     claimPrice = SETTINGS.claimPrice,
                     autoClaimPendingRobux = SETTINGS.autoClaimPendingRobux,
+                    autoClaimDailyRewards = SETTINGS.autoClaimDailyRewards == true,
                     autoClaimThreshold = SETTINGS.autoClaimThreshold,
                     autoUpdateBoothText = SETTINGS.autoUpdateBoothText,
                     boothText = SETTINGS.boothText,
